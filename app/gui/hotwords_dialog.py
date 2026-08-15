@@ -54,10 +54,10 @@ def _presets_dir() -> str:
 
 
 def parse_words(text: str):
-    """解析热词文本 → [(word, score)]: 跳过空行/# 注释, 忽略坏行。"""
+    """解析热词文本 → [(word, score)]: 跳过空行/# 注释(含 BOM 前缀), 忽略坏行。"""
     out = []
     for line in text.splitlines():
-        s = line.strip()
+        s = line.strip().lstrip("\ufeff")
         if not s or s.startswith("#"):
             continue
         parts = s.split()
@@ -75,7 +75,7 @@ def parse_words(text: str):
 def load_preset(path: str):
     """读取预设 JSON → (name, [(word, score)])。失败返回 None。"""
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
     except (OSError, ValueError) as e:
         log(f"[hotwords] 预设解析失败 {path}: {e}")
@@ -365,7 +365,7 @@ class HotwordsDialog(QDialog):
         cur = None  # 当前预设段
         if os.path.exists(self._path):
             try:
-                with open(self._path, "r", encoding="utf-8") as f:
+                with open(self._path, "r", encoding="utf-8-sig") as f:
                     for line in f.read().splitlines():
                         s = line.strip()
                         if s.startswith(PRESET_MARK):
@@ -385,8 +385,7 @@ class HotwordsDialog(QDialog):
                         presets.append(cur)
             except OSError:
                 pass
-        if not user_words and not presets:
-            user_words = [("", 1.0)]
+        # 列表默认全空(用户自行添加/导入)
         for word, score in user_words:
             self._add_word_row(word, score)
         for name, path, words in presets:
@@ -421,7 +420,7 @@ class HotwordsDialog(QDialog):
             name, words = loaded
         else:
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, "r", encoding="utf-8-sig") as f:
                     words = parse_words(f.read())
             except OSError as e:
                 InfoBar.error(tr("导入失败"), str(e), parent=self,

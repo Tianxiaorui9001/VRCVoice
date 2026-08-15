@@ -11,15 +11,8 @@ import numpy as np
 import sherpa_onnx
 
 # 热词文件模板(%APPDATA%\VRCVoice\hotwords.txt 首次启动时创建)
-HOTWORDS_TEMPLATE = """# VRCVoice 识别热词表
-# 每行一个热词(专有名词/人名/游戏名等), 可带权重; 权重越大识别时越偏向该词。
-# 权重范围建议 1.0~5.0, 默认 1.0。带 # 的行和空行会被忽略。
-# 修改后需重启 VRCVoice 生效。
-# 示例:
-# VRChat 3.0
-# 龙门石窟 2.0
-VRChat 3.0
-VRCVoice 3.0
+HOTWORDS_TEMPLATE = """# VRCVoice 热词表: 每行一个词, 可带权重(建议 1.0~5.0), 权重越大识别越偏向该词。
+# 带 # 的行会被忽略。用「设置-识别-识别热词」编辑, 或直接改本文件后重启生效。
 """
 
 
