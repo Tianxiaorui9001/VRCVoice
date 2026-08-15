@@ -3,9 +3,12 @@
 仅本地识别后端生效(modified_beam_search + hotwords 偏置), 专有名词/人名/游戏名等更准。
 保存成功后调用 self.on_saved() 回调(由主窗口决定何时重建识别引擎)。
 
-界面: 卡片式词条列表(词输入 + 权重 + 删除), 支持从 .txt 导入(格式同热词文件),
-以及打开预设目录(数据目录/presets/, 可放收集好的词表文件, 首次自动生成示例)。
+界面: 两区词条 —— 用户词条(卡片行: 词 + 权重 + 删除) 与 预设引用(一行一条,
+JSON 预设文件, 不展开混入; 保存时预设词展开追加在用户词之后, 用注释标记分隔,
+重新打开仍恢复为独立的预设行)。
+预设文件 JSON 格式: {"name": "名称", "words": [{"word": "...", "score": 3.0}]}
 """
+import json
 import os
 
 from PySide6.QtCore import Qt
@@ -13,13 +16,15 @@ from PySide6.QtWidgets import (QDialog, QFileDialog, QHBoxLayout, QScrollArea,
                                QVBoxLayout, QWidget)
 
 import qfluentwidgets
-from qfluentwidgets import (BodyLabel, DoubleSpinBox, FluentIcon, InfoBar,
-                            InfoBarPosition, LineEdit, PrimaryPushButton,
+from qfluentwidgets import (BodyLabel, CaptionLabel, DoubleSpinBox, FluentIcon,
+                            InfoBar, InfoBarPosition, LineEdit, PrimaryPushButton,
                             PushButton, SubtitleLabel)
 
 from ..asr_engine import HOTWORDS_TEMPLATE
 from ..i18n import tr
 from ..log import data_dir, log
+
+PRESET_MARK = "# ===PRESET==="  # 热词文件里预设段的注释标记(引擎会跳过注释行)
 
 
 def _template_header() -> str:
@@ -29,18 +34,20 @@ def _template_header() -> str:
 
 
 def _presets_dir() -> str:
-    """预设词表目录(数据目录/presets), 不存在则创建。"""
+    """预设词表目录(数据目录/presets), 不存在则创建, 首次放示例 JSON。"""
     d = os.path.join(data_dir(), "presets")
     try:
         os.makedirs(d, exist_ok=True)
-        sample = os.path.join(d, "示例词表.txt")
+        sample = os.path.join(d, "示例词表.json")
         if not os.path.exists(sample):
             with open(sample, "w", encoding="utf-8") as f:
-                f.write("# 预设词表示例: 每行一个词, 可带权重(建议 1.0~5.0)。\n"
-                        "# 在热词编辑器点「导入…」选择本目录文件, 即可追加到热词表。\n"
-                        "# 收集到的词表文件都可以丢进这个目录。\n\n"
-                        "VRChat 3.0\n"
-                        "龙门石窟 2.0\n")
+                json.dump({
+                    "name": "示例词表",
+                    "words": [
+                        {"word": "VRChat", "score": 3.0},
+                        {"word": "龙门石窟", "score": 2.0},
+                    ],
+                }, f, ensure_ascii=False, indent=2)
     except OSError as e:
         log(f"[hotwords] 创建预设目录失败: {e}")
     return d
@@ -65,15 +72,62 @@ def parse_words(text: str):
     return out
 
 
+def load_preset(path: str):
+    """读取预设 JSON → (name, [(word, score)])。失败返回 None。"""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError) as e:
+        log(f"[hotwords] 预设解析失败 {path}: {e}")
+        return None
+    name = data.get("name") or os.path.splitext(os.path.basename(path))[0]
+    words = []
+    raw = data.get("words", [])
+    if not isinstance(raw, list):
+        return None
+    for item in raw:
+        if isinstance(item, dict):
+            w = str(item.get("word", "")).strip()
+            try:
+                s = float(item.get("score", 1.0))
+            except (TypeError, ValueError):
+                s = 1.0
+        elif isinstance(item, (list, tuple)) and len(item) >= 1:
+            w = str(item[0]).strip()
+            try:
+                s = float(item[1]) if len(item) > 1 else 1.0
+            except (TypeError, ValueError):
+                s = 1.0
+        elif isinstance(item, str):
+            w = item.strip()
+            s = 1.0
+        else:
+            continue
+        if w:
+            words.append((w, s))
+    return name, words
+
+
+def _row_style(dark: bool) -> str:
+    bg = "rgba(255,255,255,0.07)" if dark else "rgba(0,0,0,0.05)"
+    hover = "rgba(255,255,255,0.12)" if dark else "rgba(0,0,0,0.09)"
+    return (f"#wordRow {{ background: {bg}; border-radius: 8px; }}"
+            f"#wordRow:hover {{ background: {hover}; }}")
+
+
+def _secondary_color(dark: bool) -> str:
+    return "rgba(255,255,255,0.6)" if dark else "rgba(0,0,0,0.55)"
+
+
 class _HotwordRow(QWidget):
-    """一行词条卡片: 词输入 + 权重 + 删除。"""
+    """用户词条卡片行: 词输入 + 权重 + 删除。"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setObjectName("hotwordRow")
+        self.setObjectName("wordRow")
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 8, 12, 8)
-        layout.setSpacing(10)
+        layout.setContentsMargins(12, 6, 10, 6)
+        layout.setSpacing(8)
 
         self.word_edit = LineEdit(self)
         self.word_edit.setPlaceholderText(tr("输入词汇…"))
@@ -84,19 +138,14 @@ class _HotwordRow(QWidget):
         self.score_spin.setSingleStep(0.5)
         self.score_spin.setDecimals(1)
         self.score_spin.setValue(1.0)
-        self.score_spin.setFixedWidth(110)
+        self.score_spin.setFixedWidth(104)
         layout.addWidget(self.score_spin)
 
         self.remove_btn = PushButton(tr("删除"), self)
-        self.remove_btn.setFixedWidth(72)
+        self.remove_btn.setFixedWidth(64)
         layout.addWidget(self.remove_btn)
 
-        dark = qfluentwidgets.isDarkTheme()
-        self.setStyleSheet(
-            f"#hotwordRow {{ background: {'rgba(255,255,255,0.07)' if dark else 'rgba(0,0,0,0.05)'};"
-            " border-radius: 8px; }"
-            "#hotwordRow:hover { background: "
-            f"{'rgba(255,255,255,0.12)' if dark else 'rgba(0,0,0,0.09)'}; }}")
+        self.setStyleSheet(_row_style(qfluentwidgets.isDarkTheme()))
 
     def word(self) -> str:
         return (self.word_edit.text() or "").strip()
@@ -105,31 +154,72 @@ class _HotwordRow(QWidget):
         return float(self.score_spin.value())
 
 
+class _PresetRow(QWidget):
+    """预设引用行: 一行一个预设文件(不展开), 名称 + 词数 + 移除。"""
+
+    def __init__(self, name: str, path: str, words, parent=None):
+        super().__init__(parent)
+        self.setObjectName("wordRow")
+        self.name = name
+        self.path = path
+        self._words = words  # [(word, score)]
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 6, 10, 6)
+        layout.setSpacing(8)
+
+        dark = qfluentwidgets.isDarkTheme()
+        icon = FluentIcon.FOLDER
+        from qfluentwidgets import IconWidget
+        ic = IconWidget(icon, self)
+        ic.setFixedSize(16, 16)
+        layout.addWidget(ic)
+
+        name_lbl = BodyLabel(name, self)
+        layout.addWidget(name_lbl)
+        cnt = CaptionLabel(tr(f"{len(words)} 个词"), self)
+        cnt.setStyleSheet(f"color: {_secondary_color(dark)};")
+        layout.addWidget(cnt)
+        path_lbl = CaptionLabel(os.path.basename(path), self)
+        path_lbl.setStyleSheet(f"color: {_secondary_color(dark)};")
+        path_lbl.setMaximumWidth(220)
+        layout.addWidget(path_lbl, 1)
+
+        self.remove_btn = PushButton(tr("移除"), self)
+        self.remove_btn.setFixedWidth(64)
+        layout.addWidget(self.remove_btn)
+
+        self.setStyleSheet(_row_style(dark))
+
+    def words(self):
+        return self._words
+
+
 class HotwordsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.on_saved = None
         self._path = os.path.join(data_dir(), "hotwords.txt")
         self.setWindowTitle(tr("识别热词"))
-        self.setMinimumSize(620, 480)
+        self.setMinimumSize(620, 460)
         self.setWindowModality(Qt.WindowModality.WindowModal)
-        self._rows = []  # [_HotwordRow]
+        self._rows = []  # [_HotwordRow | _PresetRow], 用户词在前, 预设在后
         self._build_ui()
         self._load()
 
     # ---------- UI ----------
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setSpacing(10)
-        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(8)
+        layout.setContentsMargins(24, 20, 24, 20)
 
         title = SubtitleLabel(tr("识别热词"))
         layout.addWidget(title)
 
+        dark = qfluentwidgets.isDarkTheme()
         tip = BodyLabel(tr("专有名词(人名/游戏名等)识别不准时, 把词加进来并调权重; "
                            "权重越大识别时越偏向该词(建议 1.0~5.0)。仅本地识别后端生效。"))
         tip.setWordWrap(True)
-        tip.setStyleSheet("color: rgba(255,255,255,0.6);")
+        tip.setStyleSheet(f"color: {_secondary_color(dark)};")
         layout.addWidget(tip)
 
         # 词条列表(滚动区 + 卡片行)
@@ -139,16 +229,16 @@ class HotwordsDialog(QDialog):
         container = QWidget()
         self.list_layout = QVBoxLayout(container)
         self.list_layout.setContentsMargins(2, 2, 6, 2)
-        self.list_layout.setSpacing(10)
+        self.list_layout.setSpacing(6)
         self.list_layout.addStretch(1)
         self.scroll.setWidget(container)
         layout.addWidget(self.scroll, 1)
 
-        # 底部操作区: 添加 | 导入 | 预设目录 | 删除
+        # 底部操作区
         ops = QHBoxLayout()
         add_btn = PushButton(FluentIcon.ADD, tr("添加"))
-        add_btn.clicked.connect(lambda _=False: self._add_row())
-        import_btn = PushButton(FluentIcon.FOLDER_ADD, tr("导入…"))
+        add_btn.clicked.connect(lambda _=False: self._add_word_row())
+        import_btn = PushButton(FluentIcon.FOLDER_ADD, tr("导入预设…"))
         import_btn.clicked.connect(lambda _=False: self._import_file())
         presets_btn = PushButton(FluentIcon.FOLDER, tr("预设目录"))
         presets_btn.clicked.connect(lambda _=False: self._open_presets())
@@ -170,14 +260,30 @@ class HotwordsDialog(QDialog):
         layout.addLayout(btns)
 
     # ---------- 行管理 ----------
-    def _add_row(self, word: str = "", score: float = 1.0):
+    def _insert_row(self, widget, before_preset: bool):
+        """插入行: before_preset=True 插到第一个预设行前, 否则插到列表尾(stretch 前)。"""
+        if before_preset:
+            for i, r in enumerate(self._rows):
+                if isinstance(r, _PresetRow):
+                    self.list_layout.insertWidget(i, widget)
+                    self._rows.insert(i, widget)
+                    return
+        self.list_layout.insertWidget(self.list_layout.count() - 1, widget)
+        self._rows.append(widget)
+
+    def _add_word_row(self, word: str = "", score: float = 1.0):
         row = _HotwordRow(self)
         row.word_edit.setText(word)
         row.score_spin.setValue(score)
         row.remove_btn.clicked.connect(lambda _=False, r=row: self._remove_row(r))
-        # 插到 stretch 前面
-        self.list_layout.insertWidget(self.list_layout.count() - 1, row)
-        self._rows.append(row)
+        self._insert_row(row, before_preset=True)
+        return row
+
+    def _add_preset_row(self, name: str, path: str, words):
+        row = _PresetRow(name, path, words, self)
+        row.remove_btn.clicked.connect(lambda _=False, r=row: self._remove_row(r))
+        self._insert_row(row, before_preset=False)
+        return row
 
     def _remove_row(self, row):
         if row in self._rows:
@@ -186,49 +292,81 @@ class HotwordsDialog(QDialog):
             row.deleteLater()
 
     def _load(self):
-        rows = []
+        """解析 hotwords.txt: 无标记词行 → 用户词; PRESET 标记段 → 预设行。"""
+        user_words = []
+        presets = []  # (name, path, words)
+        cur = None  # 当前预设段
         if os.path.exists(self._path):
             try:
                 with open(self._path, "r", encoding="utf-8") as f:
-                    rows = parse_words(f.read())
+                    for line in f.read().splitlines():
+                        s = line.strip()
+                        if s.startswith(PRESET_MARK):
+                            if cur:
+                                presets.append(cur)
+                            rest = s[len(PRESET_MARK):].strip()
+                            if "|" in rest:
+                                name, path = rest.rsplit("|", 1)
+                            else:
+                                name, path = rest, ""
+                            cur = (name.strip(), path.strip(), [])
+                        elif cur is not None:
+                            cur[2].extend(parse_words(line))
+                        else:
+                            user_words.extend(parse_words(line))
+                    if cur:
+                        presets.append(cur)
             except OSError:
-                rows = []
-        if not rows:
-            rows = [("", 1.0)]
-        for word, score in rows:
-            self._add_row(word, score)
+                pass
+        if not user_words and not presets:
+            user_words = [("", 1.0)]
+        for word, score in user_words:
+            self._add_word_row(word, score)
+        for name, path, words in presets:
+            if path and os.path.exists(path):
+                self._add_preset_row(name, path, words)
+            else:
+                # 预设文件已丢失: 词直接并入用户区, 不丢数据
+                for word, score in words:
+                    self._add_word_row(word, score)
 
     def _import_file(self):
-        """从 txt 导入词条(追加, 同词更新权重)。"""
+        """导入预设文件(json 优先, 兼容 txt), 作为独立预设行添加(不混入用户词)。"""
         start = _presets_dir()
         path, _ = QFileDialog.getOpenFileName(
-            self, tr("导入热词"), start, tr("文本文件 (*.txt);;所有文件 (*)"))
+            self, tr("导入预设"), start,
+            tr("预设文件 (*.json);;文本词表 (*.txt);;所有文件 (*)"))
         if not path:
             return
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                items = parse_words(f.read())
-        except OSError as e:
-            InfoBar.error(tr("导入失败"), str(e), parent=self,
-                          position=InfoBarPosition.TOP, duration=5000)
+        # 同路径去重
+        if any(isinstance(r, _PresetRow) and os.path.normcase(r.path) == os.path.normcase(path)
+               for r in self._rows):
+            InfoBar.warning(tr("已存在"), tr("该预设已经在列表里了"), parent=self,
+                            position=InfoBarPosition.TOP, duration=3000)
             return
-        if not items:
-            InfoBar.warning(tr("没有可导入的词条"), tr("文件里没有找到「词 权重」行"), parent=self,
+        ext = os.path.splitext(path)[1].lower()
+        if ext == ".json":
+            loaded = load_preset(path)
+            if loaded is None:
+                InfoBar.error(tr("导入失败"), tr("JSON 格式不对, 参考示例词表.json"), parent=self,
+                              position=InfoBarPosition.TOP, duration=5000)
+                return
+            name, words = loaded
+        else:
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    words = parse_words(f.read())
+            except OSError as e:
+                InfoBar.error(tr("导入失败"), str(e), parent=self,
+                              position=InfoBarPosition.TOP, duration=5000)
+                return
+            name = os.path.splitext(os.path.basename(path))[0]
+        if not words:
+            InfoBar.warning(tr("没有可导入的词条"), tr("文件里没有找到「词 权重」"), parent=self,
                             position=InfoBarPosition.TOP, duration=4000)
             return
-        # 同词更新权重, 新词追加
-        idx = {r.word(): r for r in self._rows if r.word()}
-        added = updated = 0
-        for word, score in items:
-            if word in idx:
-                idx[word].score_spin.setValue(score)
-                updated += 1
-            else:
-                self._add_row(word, score)
-                idx[word] = self._rows[-1]
-                added += 1
-        InfoBar.success(tr("导入完成"),
-                        tr(f"新增 {added} 条, 更新 {updated} 条"), parent=self,
+        self._add_preset_row(name, path, words)
+        InfoBar.success(tr("已导入预设"), tr(f"「{name}」共 {len(words)} 个词"), parent=self,
                         position=InfoBarPosition.TOP, duration=3000)
 
     def _open_presets(self):
@@ -240,22 +378,30 @@ class HotwordsDialog(QDialog):
                           position=InfoBarPosition.TOP, duration=4000)
 
     # ---------- 保存 ----------
-    def _collect(self):
-        """返回 [(word, score)]: 跳过空词汇行。"""
+    def _collect_user_words(self):
         out = []
         for row in self._rows:
-            w = row.word()
-            if w:
-                out.append((w, row.score()))
+            if isinstance(row, _HotwordRow):
+                w = row.word()
+                if w:
+                    out.append((w, row.score()))
         return out
 
+    def _collect_presets(self):
+        return [r for r in self._rows if isinstance(r, _PresetRow)]
+
     def _save(self):
-        rows = self._collect()
+        user = self._collect_user_words()
+        presets = self._collect_presets()
         try:
             with open(self._path, "w", encoding="utf-8") as f:
                 f.write(_template_header())
-                for word, score in rows:
+                for word, score in user:
                     f.write(f"{word} {score:g}\n")
+                for row in presets:
+                    f.write(f"{PRESET_MARK} {row.name}|{row.path}\n")
+                    for word, score in row.words():
+                        f.write(f"{word} {score:g}\n")
         except OSError as e:
             InfoBar.error(tr("保存失败"), str(e), parent=self,
                           position=InfoBarPosition.TOP, duration=5000)
