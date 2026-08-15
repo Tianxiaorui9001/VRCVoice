@@ -50,7 +50,7 @@ _struct_test.py
 _final_probe.py
 _pw_*.py
 hotwords.txt
-presets/
+presets/*
 !presets/VRChat热词预设.json
 
 # ===== ����������ݷ�ʽ(ֻ��Դ���������, ����ֿ�) =====
