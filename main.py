@@ -210,10 +210,10 @@ def main():
     controller = RecognitionController(settings)
 
     # 后台预加载 ASR 模型: 首次触发不再卡顿; 失败先记日志, 触发时会有明确错误提示。
-    # 模型文件可能被双实例竞态/杀软临时锁定(error 13) → 30s/60s 自动重试自愈, 不报废整个会话。
+    # 模型文件可能被另一实例/杀软临时锁定(error 13) → 5s/15s/30s 自动重试自愈, 不报废整个会话。
     def _preload_asr():
         import time
-        delays = [30, 60]
+        delays = [5, 15, 30]
         for i in range(len(delays) + 1):
             try:
                 controller.init_asr()

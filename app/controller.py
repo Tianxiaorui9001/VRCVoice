@@ -79,13 +79,20 @@ class RecognitionController:
             )
         return ASREngine(s.default_model_dir(), s.get("general", "language"))
 
-    def init_asr(self, force: bool = False):
+    def _init_asr_locked(self, force: bool) -> object:
+        """已持锁的内部初始化(调用方必须已持有 self._lock)。"""
         backend = self.backend_name
         if force or self._asr_dirty or self.asr is None or self._backend != backend:
             self._asr_dirty = False
             self._backend = backend
             self.asr = self._make_backend()
         return self.asr
+
+    def init_asr(self, force: bool = False):
+        """初始化/重建识别引擎。加锁防并发: 预加载线程、触发线程、热词重载线程
+        可能同时调用, 并发加载模型会互相干扰(曾经复现 error 13)。"""
+        with self._lock:
+            return self._init_asr_locked(force)
 
     def mark_asr_dirty(self):
         """识别器配置(如热词表)已变更: 下一次 start() 时强制重建。录音中不重建,
@@ -102,7 +109,7 @@ class RecognitionController:
         def work():
             try:
                 with self._lock:
-                    self.init_asr(force=True)
+                    self._init_asr_locked(True)
             except Exception as e:
                 print(f"[controller] ASR 重建失败: {e}")
 
@@ -123,7 +130,7 @@ class RecognitionController:
                 log("[controller] VRChat 未运行, 已拦截触发 (设置→调试→无视 VRChat 检测 可关闭)")
                 return
             try:
-                self.init_asr()
+                self._init_asr_locked(False)
             except Exception as e:
                 print(f"[controller] ASR 初始化失败: {e}")
                 if self.on_finished:
@@ -458,10 +465,11 @@ class RecognitionController:
 
     def reload_asr(self):
         """重新初始化 ASR 后端(模型加载失败时用)。返回 (ok, 错误信息)。"""
-        self._backend = None
-        self.asr = None
-        try:
-            self.init_asr()
-            return True, ""
-        except Exception as e:
-            return False, str(e)
+        with self._lock:
+            self._backend = None
+            self.asr = None
+            try:
+                self._init_asr_locked(False)
+                return True, ""
+            except Exception as e:
+                return False, str(e)
