@@ -1304,9 +1304,24 @@ class MainWindow(FluentWindow):
                 s.set("recognition", "model_dir", d)
                 model_card.edit.setText(d)
         model_card.set_after_change(lambda: None)
+
+        def _open_hotwords():
+            from .hotwords_dialog import HotwordsDialog
+            dlg = HotwordsDialog(self.settings_page)
+
+            def _on_saved():
+                if self.controller.reload_asr_async():
+                    InfoBar.success(tr("已保存"), tr("识别热词已生效"), parent=self,
+                                    position=InfoBarPosition.TOP, duration=3000)
+                else:
+                    InfoBar.info(tr("已保存"), tr("正在识别中, 下次识别时生效"), parent=self,
+                                 position=InfoBarPosition.TOP, duration=3000)
+            dlg.on_saved = _on_saved
+            dlg.exec()
         local_cards = [
             model_card,
             ButtonCard(tr("浏览模型目录"), tr("改完重启生效"), tr("浏览…"), _browse_model, icon=FluentIcon.FOLDER_ADD),
+            ButtonCard(tr("识别热词"), tr("专有名词偏置(人名/游戏名等), 提升识别准确率"), tr("编辑…"), _open_hotwords, icon=FluentIcon.DICTIONARY),
             NumberCard(tr("最长录音秒数"), tr("防误触上限"),
                        lambda: s.get("recognition", "max_duration_sec"),
                        lambda v: s.set("recognition", "max_duration_sec", v), 1, 120, 1,

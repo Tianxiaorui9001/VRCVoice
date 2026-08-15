@@ -24,6 +24,8 @@ class RecognitionController:
         self._active = False
         self._partial_text = ""
         self._last_text = ""
+        # 热词表等识别器配置变更后, 标记 dirty 让下一次 start() 强制重建 ASR
+        self._asr_dirty = False
         # GUI 回调
         self.on_state_changed = None     # (recording: bool)
         self.on_partial = None           # (text: str)
@@ -77,12 +79,35 @@ class RecognitionController:
             )
         return ASREngine(s.default_model_dir(), s.get("general", "language"))
 
-    def init_asr(self):
+    def init_asr(self, force: bool = False):
         backend = self.backend_name
-        if self.asr is None or self._backend != backend:
+        if force or self._asr_dirty or self.asr is None or self._backend != backend:
+            self._asr_dirty = False
             self._backend = backend
             self.asr = self._make_backend()
         return self.asr
+
+    def mark_asr_dirty(self):
+        """识别器配置(如热词表)已变更: 下一次 start() 时强制重建。录音中不重建,
+        避免替换正在喂数据的引擎。"""
+        self._asr_dirty = True
+
+    def reload_asr_async(self):
+        """热词等配置变更后异步重建识别引擎(模型加载 1-2s, 不进 UI 线程)。
+        录音中不重建, 仅标记 dirty 下次生效。返回 True=已开始重建。"""
+        if self.is_recording:
+            self.mark_asr_dirty()
+            return False
+
+        def work():
+            try:
+                with self._lock:
+                    self.init_asr(force=True)
+            except Exception as e:
+                print(f"[controller] ASR 重建失败: {e}")
+
+        threading.Thread(target=work, daemon=True).start()
+        return True
 
     @property
     def is_recording(self) -> bool:
