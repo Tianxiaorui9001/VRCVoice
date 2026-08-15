@@ -16,6 +16,31 @@ HOTWORDS_TEMPLATE = """# VRCVoice 热词表: 每行一个词, 可带权重(建�
 """
 
 
+def _prepare_hotwords(hotwords_file: str) -> bool:
+    """加载热词文件前预处理: 剥离 BOM 并写回(修复记事本保存产生的 BOM, 避免
+    sherpa C++ 把 \ufeff 前缀行当词条偏置); 仅当存在实际词行(非注释)时返回
+    True 启用热词偏置。文件缺失/不可读返回 False。"""
+    if not hotwords_file or not os.path.exists(hotwords_file):
+        return False
+    try:
+        with open(hotwords_file, "rb") as f:
+            raw = f.read()
+    except OSError:
+        return False
+    content = raw.decode("utf-8-sig", errors="replace")
+    if raw.startswith(b"\xef\xbb\xbf"):
+        try:
+            with open(hotwords_file, "w", encoding="utf-8", newline="") as f:
+                f.write(content)
+        except OSError:
+            pass
+    for line in content.splitlines():
+        s = line.strip()
+        if s and not s.startswith("#"):
+            return True
+    return False
+
+
 class ASREngine:
     def __init__(self, model_dir: str, language: str = "zh-en"):
         self.model_dir = model_dir
@@ -59,10 +84,7 @@ class ASREngine:
                     f.write(HOTWORDS_TEMPLATE)
             except OSError:
                 hotwords_file = ""
-        use_hotwords = False
-        if hotwords_file and os.path.exists(hotwords_file):
-            with open(hotwords_file, "r", encoding="utf-8") as f:
-                use_hotwords = any(line.strip() for line in f)
+        use_hotwords = _prepare_hotwords(hotwords_file) if hotwords_file else False
         kwargs = dict(
             tokens=tokens,
             encoder=enc,
