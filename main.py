@@ -209,13 +209,21 @@ def main():
 
     controller = RecognitionController(settings)
 
-    # 后台预加载 ASR 模型: 首次触发不再卡顿; 失败先记日志, 触发时会有明确错误提示
+    # 后台预加载 ASR 模型: 首次触发不再卡顿; 失败先记日志, 触发时会有明确错误提示。
+    # 模型文件可能被双实例竞态/杀软临时锁定(error 13) → 30s/60s 自动重试自愈, 不报废整个会话。
     def _preload_asr():
-        try:
-            controller.init_asr()
-            log("[asr] 模型已预加载")
-        except Exception as e:
-            log(f"[asr] 模型预加载失败: {e}")
+        import time
+        delays = [30, 60]
+        for i in range(len(delays) + 1):
+            try:
+                controller.init_asr()
+                log("[asr] 模型已预加载")
+                return
+            except Exception as e:
+                log(f"[asr] 模型预加载失败({i + 1}): {e}")
+                if i < len(delays):
+                    time.sleep(delays[i])
+        log("[asr] 模型预加载多次失败, 触发识别时再尝试")
 
     threading.Thread(target=_preload_asr, daemon=True).start()
 

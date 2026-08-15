@@ -29,15 +29,21 @@ _showing = False
 
 
 def _restart_app():
-    """重启软件: frozen 直接再起 exe; 源码用 venv python + main.py。"""
+    """重启软件: frozen 直接再起 exe; 源码显式用 venv pythonw + main.py
+    (不依赖 sys.executable, 避免特殊环境下解析到错误解释器拉出双实例)。"""
     try:
         from PySide6.QtCore import QProcess
+        if not _frozen:
+            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            pyw = os.path.join(root, ".venv", "Scripts", "pythonw.exe")
+            if os.path.exists(pyw):
+                QProcess.startDetached(pyw, [os.path.join(root, "main.py")])
+                return
+        # 冻结版或找不到 venv: 用当前解释器
         args = []
         if not _frozen:
             root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             args = [os.path.join(root, "main.py")]
-        # 先启动新实例, 旧实例随后 sys.exit 释放 QLockFile,
-        # 新实例 Python 初始化耗时 > 旧实例退出耗时, 锁已释放可正常接管
         QProcess.startDetached(sys.executable, args)
     except Exception:
         pass
