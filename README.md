@@ -7,96 +7,42 @@
 > 给 VRChat 里不方便说话的人（静音玩家 / 社恐 / 声带状态不佳）准备的「按住说话」工具：
 > 按住手柄按键或键盘热键说话，松手即把识别出的文字发进 VRChat 聊天框。
 
-本地识别（sherpa-onnx），不联网也能用；也支持云端 ASR（硅基流动 / OpenAI 兼容接口）。
-
-## 快速开始
-
-```bash
-# 克隆
-https://github.com/Tianxiaorui9001/VRCVoice.git
-cd VRCVoice
-
-# 安装依赖
-python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
-
-# 首次使用需下载本地识别模型到 models/ 目录
-# (见 models/download_model.bat，或直接在设置里选云端后端)
-
-# 启动
-start.bat
-```
-
-详细使用说明（VR 悬浮窗 / 常见问题 / 卸载）见 **[使用说明.md](使用说明.md)**。
-
 ## 功能
 
-- 本地 / 云端识别后端可切换：
-  - local：sherpa-onnx 本地流式识别（离线，占用约 500MB 模型空间）
-  - cloud：OpenAI 兼容 ASR 接口（硅基流动 / OpenAI 等），不占空间，适合低配/空间紧张的机器
-- PC：全局快捷键（默认右 Ctrl）按住说话，松手发送；可在设置里改键
-- VR（Phase 2）：SteamVR 可自定义按键（action manifest，像 OVRAS 一样在 SteamVR 绑定界面改键）；悬浮窗显示状态与文字
-- 输出双模式（设置切换）：
-  - OSC：发送到 VRChat chatbox（头顶气泡显示），录音时显示"正在输入"
-  - 键盘：模拟键盘输入真实发进聊天框（需要聊天输入框已获得焦点），可选自动回车
-- 可选 AI 润色（OpenAI 兼容接口，如硅基流动），默认关闭
-- 全参数设置面板（Fluent Design），全部持久化在 config.json
+- **按住说话**：按住手柄按键（PICO / Index / Quest / WMR 绑定已配好）或键盘热键（默认右 Ctrl）说话，松手自动发送
+- **本地识别**：sherpa-onnx 离线流式识别，不联网也能用（约 500MB 模型空间）
+- **云端识别**：OpenAI 兼容 ASR 接口（硅基流动等），更准、不占空间，适合低配机器
+- **双输出模式**：
+  - OSC：发到 VRChat 聊天框气泡显示，录音时显示「正在输入」
+  - 键盘：模拟键盘输入真实发进聊天框（可选自动回车）
+- **AI 润色 / AI 翻译**（可选，OpenAI 兼容接口）
+- **VR 悬浮窗**：识别时头显里显示状态窗（识别中蓝色 / 已发送绿色），位置大小可调
+- **桌面悬浮窗**：不戴头显也能看到识别状态
+- **全参数设置面板**（Fluent Design），四语言 UI（简中 / 繁中 / 英文 / 日文）
+- **开机自启**、托盘菜单、看门狗防卡死
 
-## 配置
+## 使用方法
 
-所有配置在 `config.json`（首次运行自动生成），GUI 设置面板修改即保存。主要项：
+**方式一：直接下载（推荐）**
 
-| 配置 | 说明 |
-|---|---|
-| recognition.backend | local(本地模型) / cloud(云端API) |
-| recognition.cloud_endpoint | 云端 ASR 接口(默认硅基流动 OpenAI 兼容) |
-| recognition.cloud_api_key | 云端 API Key |
-| recognition.cloud_model | 云端模型, 如 FunAudioLLM/SenseVoiceSmall |
-| general.language | 识别语言 zh / en / zh-en (本地模式) |
-| recognition.model_dir | 本地模型目录（默认 models/） |
-| recognition.mic_device | 麦克风设备名（VR 时可选 PicoStreamingMicrophone） |
-| recognition.max_duration_sec | 单次录音上限（防误触） |
-| recognition.silence_stop_sec | 静音自动停止（0=关） |
-| trigger.mode | hold / toggle |
-| trigger.pc_hotkey | pynput 键名，如 right_ctrl、f8、ctrl+shift+v |
-| trigger.vr_action | SteamVR action 名 |
-| output.mode | osc / keyboard / both |
-| output.osc_host / osc_port | VRChat OSC（默认 127.0.0.1:9000） |
-| output.osc_typing_indicator | 录音时 /chatbox/typing |
-| output.keyboard_enter_send | 键盘模式自动回车 |
-| polish.* | 可选润色 API |
+1. 到 [Releases](https://github.com/Tianxiaorui9001/VRCVoice/releases) 下载最新的分发版 zip
+2. 解压到任意位置（建议桌面或 D 盘），双击 `VRCVoice.exe` 启动
+3. 在设置里选择识别后端：**本地**（离线免费）或 **云端**（填 API Key）
+4. 启动 SteamVR 进入 VRChat，打开 OSC：菜单 → 设置 → OSC → 启用
+5. 按住手柄摇杆（或右 Ctrl）说话，松开即发送
 
-## 模型
-
-默认模型：sherpa-onnx-streaming-zipformer-bilingual-zh-en（中英双语流式，int8，约 280MB）。
-下载脚本：
-```
-models\download_model.bat
-```
-模型文件需为：encoder-epoch-99-avg-1.int8.onnx / decoder-epoch-99-avg-1.onnx /
-joiner-epoch-99-avg-1.int8.onnx / tokens.txt
-
-## 目录结构
-
-```
-VRCVoice/
-├─ main.py              入口
-├─ config.json          配置(自动生成)
-├─ models/              ASR 模型
-├─ resources/           SteamVR action manifest + 绑定文件
-└─ app/
-   ├─ settings.py       配置读写
-   ├─ recorder.py       录音
-   ├─ asr_engine.py     sherpa-onnx 流式识别
-   ├─ output.py         OSC / 键盘输出
-   ├─ hotkey.py         PC 全局热键
-   ├─ vr_input.py       OpenVR 输入(Phase 2)
-   ├─ controller.py     识别流程控制器
-   └─ gui/              Fluent 设置面板
-```
+**方式二：源码运行**（面向开发者，见 [开发与配置.md](开发与配置.md)）
 
 ## 已知限制
 
-- OSC chatbox 只是显示文本，不会真的发进聊天频道（VRChat 限制）；真发送用键盘模式
+- OSC 模式只是让聊天框显示文本，不会真的发进聊天频道（VRChat 限制）；要真实发送请用键盘模式
 - 键盘模式需要聊天输入框已获得焦点
-- VR 悬浮窗/控制器为 Phase 2，界面骨架已就位
+
+## 相关文档
+
+- 📖 [使用说明.md](使用说明.md) —— 详细使用手册（悬浮窗调校 / 常见问题 / 卸载）
+- 🔧 [开发与配置.md](开发与配置.md) —— 源码构建、全部配置项、模型说明、目录结构（面向开发者）
+
+## License
+
+[MIT](LICENSE) © 2026 天小锐
