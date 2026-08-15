@@ -41,7 +41,6 @@ class VROverlay:
         self._reqs = []          # [("frame", raw) | ("show",) | ("hide",)]
         self._worker = None
         self._last_partial = None   # partial 文本去重: 相同文本不重传(省上传防闪)
-        self._last_render_ts = 0.0  # recording 节流时间戳(1.2s 内跳过重传)
         self._last_show_ts = 0.0    # 最近一次 showOverlay 时间(自愈被 SteamVR 静默隐藏)
         self._last_op_ts = time.time()  # worker 最近完成操作时间(卡死检测)
 
@@ -86,20 +85,16 @@ class VROverlay:
     def update(self, state: str, text: str) -> None:
         """主线程调用: 渲染一帧并提交给 worker 异步上传。state: recording / result / error。
         相同 partial 文本跳过(识别中字没变就不重传, 减少闪烁与上传)。
-        recording 节流 1.2s: 降低 setOverlayRaw 上传频率(960KB/帧 × 6.7次/秒 是 SteamVR IPC
-        压力源, 实测高频上传可触发服务端 IPC 卡死) — 丢中间帧无感, 最终文本一致。"""
+        已去除 1.2s 节流: 识别文本每次变化立即刷新悬浮窗(用户要求), 靠 partial 去重控制上传频率。"""
         if not self._ready or self._overlay is None:
             return
         now = time.time()
-        if state == "recording" and now - self._last_render_ts < 1.2:
-            return  # 节流: 1.2s 内跳过(960KB/帧全量上传是 SteamVR IPC 压力源, 高频上传实测可卡死服务端)
         if state == "recording":
             if text == self._last_partial:
                 return
             self._last_partial = text
         else:
             self._last_partial = None
-        self._last_render_ts = now
         try:
             img = self._render(state, text)
             raw = bytes(img.constBits())
