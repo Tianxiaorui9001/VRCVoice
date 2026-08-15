@@ -120,11 +120,12 @@ def _secondary_color(dark: bool) -> str:
 
 
 class _HotwordRow(QWidget):
-    """用户词条卡片行: 词输入 + 权重 + 删除。"""
+    """词条卡片行: 词输入 + 权重 + 删除。on_remove(self) 由归属方决定删除行为。"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("wordRow")
+        self.on_remove = None
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 6, 10, 6)
         layout.setSpacing(8)
@@ -138,14 +139,19 @@ class _HotwordRow(QWidget):
         self.score_spin.setSingleStep(0.5)
         self.score_spin.setDecimals(1)
         self.score_spin.setValue(1.0)
-        self.score_spin.setFixedWidth(104)
+        self.score_spin.setFixedWidth(128)
         layout.addWidget(self.score_spin)
 
         self.remove_btn = PushButton(tr("删除"), self)
         self.remove_btn.setFixedWidth(64)
+        self.remove_btn.clicked.connect(lambda _=False: self._on_remove())
         layout.addWidget(self.remove_btn)
 
         self.setStyleSheet(_row_style(qfluentwidgets.isDarkTheme()))
+
+    def _on_remove(self):
+        if self.on_remove:
+            self.on_remove(self)
 
     def word(self) -> str:
         return (self.word_edit.text() or "").strip()
@@ -155,43 +161,103 @@ class _HotwordRow(QWidget):
 
 
 class _PresetRow(QWidget):
-    """预设引用行: 一行一个预设文件(不展开), 名称 + 词数 + 移除。"""
+    """预设分组行: 默认折叠成一行(名称 + 词数 + 路径 + 展开/移除);
+    展开后显示组内词条卡片行, 与用户自定义词条一样可改词/调权重/删除,
+    词删光则整组移除。on_empty(self) 由对话框处理整组移除。"""
 
     def __init__(self, name: str, path: str, words, parent=None):
         super().__init__(parent)
-        self.setObjectName("wordRow")
         self.name = name
         self.path = path
-        self._words = words  # [(word, score)]
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 6, 10, 6)
-        layout.setSpacing(8)
+        self.on_empty = None
+        self._expanded = False
+        self._word_rows = []  # [_HotwordRow]
 
         dark = qfluentwidgets.isDarkTheme()
-        icon = FluentIcon.FOLDER
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        # 头部单行卡片(折叠态就是这一行)
+        self.header = QWidget(self)
+        self.header.setObjectName("presetHeader")
+        hl = QHBoxLayout(self.header)
+        hl.setContentsMargins(12, 6, 10, 6)
+        hl.setSpacing(8)
         from qfluentwidgets import IconWidget
-        ic = IconWidget(icon, self)
+        ic = IconWidget(FluentIcon.FOLDER, self.header)
         ic.setFixedSize(16, 16)
-        layout.addWidget(ic)
-
-        name_lbl = BodyLabel(name, self)
-        layout.addWidget(name_lbl)
-        cnt = CaptionLabel(tr(f"{len(words)} 个词"), self)
-        cnt.setStyleSheet(f"color: {_secondary_color(dark)};")
-        layout.addWidget(cnt)
-        path_lbl = CaptionLabel(os.path.basename(path), self)
+        hl.addWidget(ic)
+        name_lbl = BodyLabel(name, self.header)
+        hl.addWidget(name_lbl)
+        self.count_lbl = CaptionLabel("", self.header)
+        self.count_lbl.setStyleSheet(f"color: {_secondary_color(dark)};")
+        hl.addWidget(self.count_lbl)
+        path_lbl = CaptionLabel(os.path.basename(path), self.header)
         path_lbl.setStyleSheet(f"color: {_secondary_color(dark)};")
-        path_lbl.setMaximumWidth(220)
-        layout.addWidget(path_lbl, 1)
-
-        self.remove_btn = PushButton(tr("移除"), self)
+        path_lbl.setMaximumWidth(200)
+        hl.addWidget(path_lbl, 1)
+        self.toggle_btn = PushButton(tr("展开"), self.header)
+        self.toggle_btn.setFixedWidth(64)
+        self.toggle_btn.clicked.connect(lambda _=False: self.toggle())
+        hl.addWidget(self.toggle_btn)
+        self.remove_btn = PushButton(tr("移除"), self.header)
         self.remove_btn.setFixedWidth(64)
-        layout.addWidget(self.remove_btn)
+        hl.addWidget(self.remove_btn)
+        self.header.setStyleSheet(
+            f"#presetHeader {{ background: {'rgba(255,255,255,0.07)' if dark else 'rgba(0,0,0,0.05)'};"
+            " border-radius: 8px; }"
+            f"#presetHeader:hover {{ background: {'rgba(255,255,255,0.12)' if dark else 'rgba(0,0,0,0.09)'}; }}")
+        outer.addWidget(self.header)
 
-        self.setStyleSheet(_row_style(dark))
+        # 展开区(默认隐藏): 词条卡片行, 与用户自定义词条同款
+        self.expand = QWidget(self)
+        self.expand_layout = QVBoxLayout(self.expand)
+        self.expand_layout.setContentsMargins(26, 4, 8, 4)
+        self.expand_layout.setSpacing(6)
+        self.expand.setVisible(False)
+        outer.addWidget(self.expand)
+
+        for word, score in words:
+            self._add_word(word, score)
+
+    # ---------- 展开 / 折叠 ----------
+    def toggle(self):
+        self._expanded = not self._expanded
+        self.expand.setVisible(self._expanded)
+        self.toggle_btn.setText(tr("收起") if self._expanded else tr("展开"))
+
+    # ---------- 词条管理 ----------
+    def _add_word(self, word: str, score: float):
+        row = _HotwordRow(self.expand)
+        row.word_edit.setText(word)
+        row.score_spin.setValue(score)
+        row.on_remove = lambda r: self._remove_word(r)
+        self.expand_layout.addWidget(row)
+        self._word_rows.append(row)
+        self._update_count()
+        return row
+
+    def _remove_word(self, row):
+        if row in self._word_rows:
+            self._word_rows.remove(row)
+            self.expand_layout.removeWidget(row)
+            row.deleteLater()
+            self._update_count()
+            if not self._word_rows and self.on_empty:
+                self.on_empty(self)
+
+    def _update_count(self):
+        self.count_lbl.setText(tr(f"{len(self._word_rows)} 个词"))
 
     def words(self):
-        return self._words
+        """展开区当前词条(实时可编辑结果)。"""
+        out = []
+        for row in self._word_rows:
+            w = row.word()
+            if w:
+                out.append((w, row.score()))
+        return out
 
 
 class HotwordsDialog(QDialog):
@@ -275,12 +341,13 @@ class HotwordsDialog(QDialog):
         row = _HotwordRow(self)
         row.word_edit.setText(word)
         row.score_spin.setValue(score)
-        row.remove_btn.clicked.connect(lambda _=False, r=row: self._remove_row(r))
+        row.on_remove = lambda r: self._remove_row(r)
         self._insert_row(row, before_preset=True)
         return row
 
     def _add_preset_row(self, name: str, path: str, words):
         row = _PresetRow(name, path, words, self)
+        row.on_empty = lambda r: self._remove_row(r)
         row.remove_btn.clicked.connect(lambda _=False, r=row: self._remove_row(r))
         self._insert_row(row, before_preset=False)
         return row
