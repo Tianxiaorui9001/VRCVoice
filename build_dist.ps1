@@ -1,5 +1,5 @@
 ﻿# VRCVoice 分发版打包脚本
-# 用法: powershell -ExecutionPolicy Bypass -File build_dist.ps1 [-Version 0.9.1]
+# 用法: powershell -ExecutionPolicy Bypass -File build_dist.ps1 [-Version 0.9.2]
 # 产出: dist\VRCVoice_v<版本>.zip (不含个人配置/日志/锁文件)
 param(
     [string]$Version
