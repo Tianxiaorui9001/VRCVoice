@@ -17,17 +17,49 @@ HOTWORDS_TEMPLATE = """# VRCVoice 热词表: 每行一个词, 可带权重(建�
 """
 
 
-def _prepare_hotwords(hotwords_file: str) -> bool:
-    """加载热词文件前预处理: 剥离 BOM 并写回(修复记事本保存产生的 BOM, 避免
-    sherpa C++ 把 \ufeff 前缀行当词条偏置); 仅当存在实际词行(非注释)时返回
-    True 启用热词偏置。文件缺失/不可读返回 False。"""
+# sherpa-onnx hotwords 硬性约束(经实测确认):
+# 1) 行格式必须是 "词 :权重"(冒号前缀)。GUI 的 "词 权重" 空格格式会被当成长词, 编码失败。
+# 2) 任一行含 tokens.txt 词表外字符(如 # = | + 等非字母数字) → EncodeBase 返回 false,
+#    整个热词表全部丢弃! 所以注释行/PRESET 标记行/特殊字符词必须在此剔除。
+# 3) 中文逐字查 tokens.txt 单字(5755 个, 常用字全覆盖); ASCII 字母走 bpe 编码,
+#    小写字母不在词表会编成 <unk>(静默无效), 故英文词转大写。
+_HOTWORD_BAD_CHARS = set('+-?/()&%=|:#@[]{}<>~`!*^\\"\'')
+
+# tokens.txt 单字符集(懒加载), 用于中文热词可编码性检查
+_single_chars = None
+
+
+def _load_single_chars(model_dir: str) -> set:
+    """读取模型 tokens.txt 的全部单字符 token, 用于热词编码预检。
+    文件缺失时返回空集(跳过检查)。"""
+    global _single_chars
+    if _single_chars is not None:
+        return _single_chars
+    chars = set()
+    try:
+        with open(os.path.join(model_dir, "tokens.txt"), encoding="utf-8") as f:
+            for line in f:
+                t = line.split()[0] if line.strip() else ""
+                if len(t) == 1:
+                    chars.add(t)
+    except (OSError, IndexError):
+        pass
+    _single_chars = chars
+    return chars
+
+
+def _prepare_hotwords(hotwords_file: str, model_dir: str = "") -> str:
+    """把 GUI 格式热词文件转换为 sherpa-onnx 兼容格式, 返回临时文件路径。
+    转换规则: 去注释/PRESET 行; "词 权重" → "词 :权重"; 英文词转大写;
+    丢弃含特殊字符的词(否则整表作废); 中文词逐字检查词表可编码性。
+    无有效词返回空字符串(不启用热词偏置)。"""
     if not hotwords_file or not os.path.exists(hotwords_file):
-        return False
+        return ""
     try:
         with open(hotwords_file, "rb") as f:
             raw = f.read()
     except OSError:
-        return False
+        return ""
     content = raw.decode("utf-8-sig", errors="replace")
     if raw.startswith(b"\xef\xbb\xbf"):
         try:
@@ -35,11 +67,39 @@ def _prepare_hotwords(hotwords_file: str) -> bool:
                 f.write(content)
         except OSError:
             pass
+    singles = _load_single_chars(model_dir) if model_dir else set()
+    out = []
     for line in content.splitlines():
         s = line.strip()
-        if s and not s.startswith("#"):
-            return True
-    return False
+        if not s or s.startswith("#"):
+            continue
+        parts = s.split()
+        word = parts[0]
+        score = parts[1] if len(parts) > 1 else "1.0"
+        if score.startswith(":"):
+            score = score[1:]  # 兼容用户手写 sherpa 格式
+        try:
+            fscore = float(score)
+        except ValueError:
+            fscore = 1.0
+        if fscore < 0.5:
+            fscore = 1.0
+        if word.isascii():
+            word = word.upper()  # 词表只有大写单字母/子词, 小写会编成 <unk>
+        if any(c in _HOTWORD_BAD_CHARS for c in word):
+            continue  # 特殊字符不在词表, 会连累整表作废
+        if singles and not all(c in singles for c in word if not c.isascii()):
+            continue  # 中文热词里有词表外汉字 → 丢弃(避免杀全表)
+        out.append(f"{word} :{fscore:g}")
+    if not out:
+        return ""
+    tmp = hotwords_file + ".sherpa"
+    try:
+        with open(tmp, "w", encoding="utf-8", newline="") as f:
+            f.write("\n".join(out) + "\n")
+    except OSError:
+        return ""
+    return tmp
 
 
 # 模型偶发输出 token 文本(静音 SIL / 未知 UNK), 识别结果里直接剔除。
@@ -91,6 +151,8 @@ class ASREngine:
         # 热词支持: %APPDATA%\VRCVoice\hotwords.txt 存在且有内容时, 用 modified_beam_search + 热词偏置,
         # 专有名词/人名/游戏名等识别更准。文件每行一个词(可带权重, 如: VRChat 3.0)。
         # 放 APPDATA(而非 models/) 避免升级覆盖用户自建词表。
+        # 注意: sherpa 要求每行 "词 :权重" 且不能有注释/特殊字符(否则整表作废),
+        # 因此先经 _prepare_hotwords 转换为临时文件再传给 sherpa。
         from .log import data_dir
         hotwords_file = os.path.join(data_dir(), "hotwords.txt")
         if not os.path.exists(hotwords_file):
@@ -99,7 +161,9 @@ class ASREngine:
                     f.write(HOTWORDS_TEMPLATE)
             except OSError:
                 hotwords_file = ""
-        use_hotwords = _prepare_hotwords(hotwords_file) if hotwords_file else False
+        bpe_vocab = os.path.join(self.model_dir, "bpe.vocab")
+        has_bpe = os.path.exists(bpe_vocab)
+        hotwords_file = _prepare_hotwords(hotwords_file, self.model_dir) if hotwords_file else ""
         kwargs = dict(
             tokens=tokens,
             encoder=enc,
@@ -110,10 +174,11 @@ class ASREngine:
             feature_dim=80,
             enable_endpoint_detection=False,
             rule_fsts="",
-            modeling_unit="bpe" if os.path.exists(os.path.join(self.model_dir, "bpe.vocab")) else "cjkchar",
-            bpe_vocab=os.path.join(self.model_dir, "bpe.vocab") if os.path.exists(os.path.join(self.model_dir, "bpe.vocab")) else "",
+            # cjkchar+bpe: 中文热词逐字查单字词表, 英文热词走 bpe 编码(实测两者都必需)
+            modeling_unit="cjkchar+bpe" if has_bpe else "cjkchar",
+            bpe_vocab=bpe_vocab if has_bpe else "",
         )
-        if use_hotwords:
+        if hotwords_file:
             kwargs.update(
                 decoding_method="modified_beam_search",
                 max_active_paths=4,
