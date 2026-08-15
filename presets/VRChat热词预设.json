@@ -1,13 +1,13 @@
 {
-  "name": "VRChat 常用黑话",
+  "name": "VRChat 预设",
   "words": [
     {
       "word": "无言势",
       "score": 3.5
     },
     {
-      "word": "erp",
-      "score": 4.0
+      "word": "ERP",
+      "score": 4.5
     },
     {
       "word": "改模",
@@ -27,7 +27,7 @@
     },
     {
       "word": "OSC",
-      "score": 4.0
+      "score": 4.5
     },
     {
       "word": "笔",
@@ -35,7 +35,7 @@
     },
     {
       "word": "VRC+",
-      "score": 4.0
+      "score": 4.5
     },
     {
       "word": "闲鱼",
@@ -87,19 +87,19 @@
     },
     {
       "word": "VR",
-      "score": 4.0
+      "score": 4.5
     },
     {
-      "word": "Pico",
-      "score": 4.0
+      "word": "PICO",
+      "score": 4.5
     },
     {
-      "word": "Quest",
-      "score": 4.0
+      "word": "QUEST",
+      "score": 4.5
     },
     {
-      "word": "Vive",
-      "score": 4.0
+      "word": "VIVE",
+      "score": 4.5
     },
     {
       "word": "动骨",
@@ -122,12 +122,12 @@
       "score": 3.5
     },
     {
-      "word": "SteamVR",
-      "score": 4.0
+      "word": "STEAMVR",
+      "score": 4.5
     },
     {
-      "word": "Tracker",
-      "score": 4.0
+      "word": "TRACKER",
+      "score": 4.5
     },
     {
       "word": "史莱姆",
@@ -190,44 +190,44 @@
       "score": 3.5
     },
     {
-      "word": "Unity",
-      "score": 4.0
+      "word": "UNITY",
+      "score": 4.5
     },
     {
       "word": "VCC",
-      "score": 4.0
+      "score": 4.5
     },
     {
       "word": "ALCOM",
-      "score": 4.0
+      "score": 4.5
     },
     {
       "word": "SDK",
-      "score": 4.0
+      "score": 4.5
     },
     {
       "word": "DPS",
-      "score": 4.0
+      "score": 4.5
     },
     {
       "word": "PCS",
-      "score": 4.0
+      "score": 4.5
     },
     {
       "word": "SPS",
-      "score": 4.0
+      "score": 4.5
     },
     {
       "word": "CAD",
-      "score": 4.0
+      "score": 4.5
     },
     {
       "word": "PS",
-      "score": 4.0
+      "score": 4.5
     },
     {
-      "word": "Blender",
-      "score": 4.0
+      "word": "BLENDER",
+      "score": 4.5
     },
     {
       "word": "猫娘",
@@ -263,11 +263,11 @@
     },
     {
       "word": "MA",
-      "score": 4.0
+      "score": 4.5
     },
     {
-      "word": "VRCFury",
-      "score": 4.0
+      "word": "VRCFURY",
+      "score": 4.5
     },
     {
       "word": "光源",
@@ -278,40 +278,40 @@
       "score": 3.5
     },
     {
-      "word": "Shader",
-      "score": 4.0
+      "word": "SHADER",
+      "score": 4.5
     },
     {
       "word": "EAC",
-      "score": 4.0
+      "score": 4.5
     },
     {
-      "word": "Booth",
-      "score": 4.0
+      "word": "BOOTH",
+      "score": 4.5
     },
     {
       "word": "FBX",
-      "score": 4.0
+      "score": 4.5
     },
     {
-      "word": "Vket",
-      "score": 4.0
+      "word": "VKET",
+      "score": 4.5
     },
     {
-      "word": "Fallback",
-      "score": 4.0
+      "word": "FALLBACK",
+      "score": 4.5
     },
     {
-      "word": "Gumroad",
-      "score": 4.0
+      "word": "GUMROAD",
+      "score": 4.5
     },
     {
-      "word": "Discord",
-      "score": 4.0
+      "word": "DISCORD",
+      "score": 4.5
     },
     {
-      "word": "Avatar",
-      "score": 4.0
+      "word": "AVATAR",
+      "score": 4.5
     },
     {
       "word": "盗模",
@@ -366,12 +366,12 @@
       "score": 3.5
     },
     {
-      "word": "Spawn",
-      "score": 4.0
+      "word": "SPAWN",
+      "score": 4.5
     },
     {
-      "word": "Portal",
-      "score": 4.0
+      "word": "PORTAL",
+      "score": 4.5
     },
     {
       "word": "涩涩",
@@ -399,11 +399,11 @@
     },
     {
       "word": "VRCX",
-      "score": 4.0
+      "score": 4.5
     },
     {
       "word": "Quest3",
-      "score": 4.0
+      "score": 4.5
     },
     {
       "word": "夹子音",

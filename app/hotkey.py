@@ -109,10 +109,21 @@ class HotkeyListener:
             self._stop_timer = None
 
     def _trigger_start(self):
+        had_pending = self._stop_timer is not None
         self._cancel_pending_stop()  # 延迟窗口内重新按住 -> 无缝续录
-        if not self._pressed:
-            self._pressed = True
-            threading.Thread(target=self.on_start, daemon=True).start()
+        if self._pressed:
+            if had_pending:
+                return  # release_delay 窗口内的快速再按: 录音未断, 无缝续录
+            # release 事件丢失(pynput 钩子偶发) → 自愈: 停掉残留录音, 重新开始
+            # 否则 _pressed 永久滞留, 后续按下全被吞 → "按下不理我"
+            if self.on_is_recording is not None and self.on_is_recording():
+                try:
+                    self.on_stop()  # 同步停, 避免与下方 start 并发抢锁
+                except Exception:
+                    pass
+            self._pressed = False
+        self._pressed = True
+        threading.Thread(target=self.on_start, daemon=True).start()
 
     def _trigger_stop(self):
         self._cancel_pending_stop()

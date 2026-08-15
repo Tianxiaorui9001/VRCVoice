@@ -30,7 +30,7 @@ from PySide6.QtGui import QIcon
 
 from app.settings import Settings, APP_ICON
 from app.controller import RecognitionController
-from app.log import log, LOG_PATH, data_dir
+from app.log import log, LOG_PATH, data_dir, app_base_dir
 from app.gui.main_window import MainWindow
 from app import crash_dialog
 from app.i18n import tr, L
@@ -163,6 +163,30 @@ class TrayIcon:
             self.window.raise_()
 
 
+def _ensure_builtin_preset():
+    """首启把发行版内置的 VRChat 预设复制到数据目录 presets(用户可删可改)。
+    带哨兵标记: 只复制一次, 用户删除后不会再次出现; 已存在则覆盖不处理(能改)。"""
+    try:
+        src = os.path.join(app_base_dir(), "presets", "VRChat热词预设.json")
+        if not os.path.exists(src):
+            return
+        dst_dir = os.path.join(data_dir(), "presets")
+        os.makedirs(dst_dir, exist_ok=True)
+        dst = os.path.join(dst_dir, "VRChat热词预设.json")
+        if os.path.abspath(src) == os.path.abspath(dst):
+            return  # 源码模式: 内置源即数据目录, 无需复制
+        marker = os.path.join(dst_dir, ".builtin_preset_done")
+        if os.path.exists(marker):
+            return
+        import shutil
+        shutil.copy2(src, dst)
+        with open(marker, "w", encoding="utf-8") as f:
+            f.write("1")
+        log("[preset] 内置预设「VRChat 预设」已复制到数据目录(可删可改)")
+    except Exception as e:
+        log(f"[preset] 内置预设复制失败: {e}")
+
+
 def main():
     # 单实例保护: 重复启动直接退出, 防止多实例抢配置/抢热键/重复发送
     from PySide6.QtCore import QLockFile
@@ -187,6 +211,9 @@ def main():
     L.reload()
 
     log(f"[main] VRCVoice 启动 pid={os.getpid()}")
+
+    # 内置热词预设: 首启从发行版 presets/ 复制到数据目录(可删可改, 删了不复活)
+    _ensure_builtin_preset()
 
     app = crash_dialog.SafeApp(sys.argv)
     app.setApplicationName("VRCVoice")

@@ -50,6 +50,14 @@ $modelDst = Join-Path $dst "models"
 New-Item -ItemType Directory -Force $resourceDst, $modelDst | Out-Null
 Get-ChildItem (Join-Path $root "resources\*.json") -File |
     Copy-Item -Destination $resourceDst -Force
+
+# 内置热词预设(只读资源; 首次运行自动复制到数据目录, 用户可删可改)
+$presetSrc = Join-Path $root "presets\VRChat热词预设.json"
+if (Test-Path -LiteralPath $presetSrc -PathType Leaf) {
+    $presetDst = Join-Path $dst "presets"
+    New-Item -ItemType Directory -Force $presetDst | Out-Null
+    Copy-Item -LiteralPath $presetSrc -Destination $presetDst -Force
+}
 foreach ($name in $requiredModels) {
     Copy-Item -LiteralPath (Join-Path $root "models\$name") -Destination $modelDst -Force
 }
