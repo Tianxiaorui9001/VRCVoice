@@ -38,6 +38,26 @@ from app.i18n import tr, L
 import qfluentwidgets
 from qfluentwidgets import FluentIcon
 
+from PySide6.QtCore import Qt
+
+
+def _make_tray_icon() -> QIcon:
+    """托盘图标: 优先用 logo.ico(自带多尺寸, 系统按 DPI 选最清晰的一档);
+    兜底用 logo.png 预渲染 16~256 多尺寸。仅一个 512px 大图时 Windows
+    托盘只缩到 16px, 边缘发虚显小; 多尺寸让托盘区更清晰饱满。"""
+    import os
+    from PySide6.QtGui import QPixmap
+    ico = os.path.join(os.path.dirname(APP_ICON), "logo.ico")
+    if os.path.exists(ico):
+        return QIcon(ico)
+    icon = QIcon()
+    pix = QPixmap(APP_ICON)
+    if not pix.isNull():
+        for size in (16, 20, 24, 32, 48, 64, 128, 256):
+            icon.addPixmap(pix.scaled(size, size, Qt.KeepAspectRatio,
+                                      Qt.SmoothTransformation))
+    return icon
+
 
 class TrayIcon:
     """系统托盘: FluentDesign 圆角菜单。显示窗口 / 快捷开关(润色/翻译) / 重启 / 退出。"""
@@ -50,7 +70,7 @@ class TrayIcon:
         self.window = window
         self.controller = controller
         self.settings = settings
-        self.tray = QSystemTrayIcon(QIcon(APP_ICON), app)
+        self.tray = QSystemTrayIcon(_make_tray_icon(), app)
         self.tray.setToolTip(tr("VRCVoice - 按住说话"))
 
         # 系统托盘必须用 CheckableSystemTrayMenu: 普通 RoundMenu 在托盘菜单里勾选状态不渲染

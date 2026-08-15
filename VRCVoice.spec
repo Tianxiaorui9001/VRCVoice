@@ -5,7 +5,7 @@ datas = []
 binaries = []
 hiddenimports = ['pynput.keyboard._win32', 'pynput.mouse._win32']
 # Logo 资源(托盘/关于界面运行时用), 打包后位于 exe 旁 assets/ 目录
-for _asset in ('assets/logo.png', 'assets/logo.ico'):
+for _asset in ('assets/logo.png', 'assets/logo.ico', 'assets/logo_big.png'):
     datas.append((_asset, 'assets'))
 # 语言文件进包(四语言 JSON)
 for _lng in ('zh-CN', 'zh-TW', 'en-US', 'ja'):

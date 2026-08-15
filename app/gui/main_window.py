@@ -20,7 +20,7 @@ from qfluentwidgets import (
     SmoothScrollArea, IconWidget,
 )
 
-from ..settings import Settings, APP_ICON
+from ..settings import Settings, APP_ICON, APP_BANNER
 from ..controller import RecognitionController
 from .. import autostart
 from ..i18n import tr
@@ -485,6 +485,20 @@ class AboutPage(CardWidget):
         outer = QVBoxLayout(self)
         outer.setContentsMargins(24, 24, 24, 24)
         outer.setSpacing(12)
+
+        # 顶部横幅 header(logo_big 宽图)
+        banner = CardWidget()
+        vb = QVBoxLayout(banner)
+        vb.setContentsMargins(0, 0, 0, 0)
+        banner_lbl = QLabel()
+        banner_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        banner_pix = QPixmap(APP_BANNER) if os.path.exists(APP_BANNER) else QPixmap()
+        if not banner_pix.isNull():
+            banner_lbl.setPixmap(banner_pix.scaledToWidth(
+                560, Qt.TransformationMode.SmoothTransformation))
+        vb.addWidget(banner_lbl)
+        outer.addWidget(banner)
+
         outer.addWidget(StrongBodyLabel(tr("关于")))
 
         # 头部: logo + 名称 + 版本 + 一句话简介

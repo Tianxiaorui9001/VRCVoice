@@ -12,17 +12,28 @@ APP_DIR = app_base_dir()
 CONFIG_PATH = os.path.join(data_dir(), "config.json")
 
 
-def app_icon_path() -> str:
-    """应用图标路径(托盘/窗口/关于界面共用)。
-    源码: 项目 assets/; 打包: PyInstaller 6.x 资源目录(_internal/assets)。"""
+def _asset(name: str) -> str:
+    """资源目录内文件路径(源码: 项目 assets/; 打包: PyInstaller 6.x 资源目录 _internal/assets)。"""
     if getattr(sys, "frozen", False):
         base = getattr(sys, "_MEIPASS", APP_DIR)
     else:
         base = APP_DIR
-    return os.path.join(base, "assets", "logo.png")
+    return os.path.join(base, "assets", name)
+
+
+def app_icon_path() -> str:
+    """应用图标路径(托盘/窗口/关于界面共用)。
+    源码: 项目 assets/; 打包: PyInstaller 6.x 资源目录(_internal/assets)。"""
+    return _asset("logo.png")
+
+
+def app_banner_path() -> str:
+    """关于页顶部横幅图路径。"""
+    return _asset("logo_big.png")
 
 
 APP_ICON = app_icon_path()
+APP_BANNER = app_banner_path()
 
 DEFAULTS = {
     "general": {
