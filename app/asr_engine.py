@@ -25,6 +25,14 @@ HOTWORDS_TEMPLATE = """# VRCVoice 热词表: 每行一个词, 可带权重(建�
 #    小写字母不在词表会编成 <unk>(静默无效), 故英文词转大写。
 _HOTWORD_BAD_CHARS = set('+-?/()&%=|:#@[]{}<>~`!*^\\"\'')
 
+# 特殊字符 → 可编码替代字: 词表里没有 '+'(C++ isalpha 不认 → OOV 杀全表),
+# 但中文单字'加'在 tokens.txt 里(id 1560)。送入 sherpa 前把 '+' 替换成 '加',
+# 识别结果里再把整词映射回 '+'。可扩展更多字符。
+_HOTWORD_CHAR_MAP = {'+': '加'}
+
+# 编码词 → 显示词(如 VRC加 → VRC+), _prepare_hotwords 每次重建
+_RESULT_MAP = {}
+
 # tokens.txt 单字符集(懒加载), 用于中文热词可编码性检查
 _single_chars = None
 
@@ -54,6 +62,7 @@ def _prepare_hotwords(hotwords_file: str, model_dir: str = "") -> str:
     丢弃含特殊字符的词(否则整表作废); 中文词逐字检查词表可编码性。
     无有效词返回空字符串(不启用热词偏置)。"""
     if not hotwords_file or not os.path.exists(hotwords_file):
+        _RESULT_MAP.clear()
         return ""
     try:
         with open(hotwords_file, "rb") as f:
@@ -86,8 +95,17 @@ def _prepare_hotwords(hotwords_file: str, model_dir: str = "") -> str:
             fscore = 1.0
         if word.isascii():
             word = word.upper()  # 词表只有大写单字母/子词, 小写会编成 <unk>
+        # 特殊字符处理: 先尝试映射(如 + → 加), 全部映射成功则用替代词,
+        # 仍有无法映射的特殊字符才丢弃(宁可丢词不杀全表)
         if any(c in _HOTWORD_BAD_CHARS for c in word):
-            continue  # 特殊字符不在词表, 会连累整表作废
+            orig_word = word
+            mapped = word
+            for ch, rep in _HOTWORD_CHAR_MAP.items():
+                mapped = mapped.replace(ch, rep)
+            if any(c in _HOTWORD_BAD_CHARS for c in mapped):
+                continue
+            word = mapped
+            _RESULT_MAP[word] = orig_word  # 识别出替代词后映射回原词
         if singles and not all(c in singles for c in word if not c.isascii()):
             continue  # 中文热词里有词表外汉字 → 丢弃(避免杀全表)
         out.append(f"{word} :{fscore:g}")
@@ -112,6 +130,10 @@ def _clean_result(text: str) -> str:
     if not text:
         return ""
     text = _TOKEN_JUNK.sub("", text)
+    # 特殊字符映射词还原(如 VRC加 → VRC+): 长词优先, 避免短键先替换被吞
+    if _RESULT_MAP:
+        for code, display in sorted(_RESULT_MAP.items(), key=lambda kv: -len(kv[0])):
+            text = text.replace(code, display)
     text = re.sub(r"\s{2,}", " ", text)
     return text.strip()
 
