@@ -4,8 +4,8 @@ import sys
 import threading
 import time
 
-from PySide6.QtCore import Qt, QThread, Signal, QTimer
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import Qt, QThread, Signal, QTimer, QUrl
+from PySide6.QtGui import QPixmap, QDesktopServices
 from PySide6.QtWidgets import (QFileDialog, QLabel, QVBoxLayout, QWidget,
                                QHBoxLayout, QScrollArea, QGridLayout, QFrame,
                                QDialog, QFormLayout, QSpinBox, QMessageBox,
@@ -560,8 +560,11 @@ class AboutPage(CardWidget):
         btn_cfg.clicked.connect(self._open_config)
         btn_data = PushButton(tr("打开数据目录"))
         btn_data.clicked.connect(self._open_data_dir)
+        btn_home = PushButton(tr("项目首页"))
+        btn_home.clicked.connect(self._open_home)
         row.addWidget(btn_cfg)
         row.addWidget(btn_data)
+        row.addWidget(btn_home)
         row.addStretch(1)
         vd.addLayout(row)
         vd.addStretch(1)
@@ -612,6 +615,10 @@ class AboutPage(CardWidget):
         import subprocess
         from ..log import data_dir
         subprocess.Popen(["explorer", data_dir()])
+
+    def _open_home(self):
+        """打开项目首页(GitHub 仓库)。"""
+        QDesktopServices.openUrl(QUrl("https://github.com/Tianxiaorui9001/VRCVoice"))
 
 
 # ---------- 状态页 ----------

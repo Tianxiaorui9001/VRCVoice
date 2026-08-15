@@ -239,6 +239,7 @@
   "强制隐藏悬浮窗": "Force hide overlay",
   "手动收起悬浮窗": "Manually hide the overlay",
   "打开配置文件": "Open config file",
+  "项目首页": "Project homepage",
   "config.json, 改完重启生效": "config.json; takes effect after restart",
   "打开": "Open",
   "运行模式/路径/Python 版本": "Mode / paths / Python version",
