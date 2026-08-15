@@ -20,7 +20,7 @@ from qfluentwidgets import (
     SmoothScrollArea, IconWidget,
 )
 
-from ..settings import Settings, APP_ICON, APP_BANNER
+from ..settings import Settings, APP_BANNER
 from ..controller import RecognitionController
 from .. import autostart
 from ..i18n import tr
@@ -500,32 +500,6 @@ class AboutPage(CardWidget):
         outer.addWidget(banner)
 
         outer.addWidget(StrongBodyLabel(tr("关于")))
-
-        # 头部: logo + 名称 + 版本 + 一句话简介
-        head = CardWidget()
-        h = QHBoxLayout(head)
-        h.setContentsMargins(20, 18, 20, 18)
-        h.setSpacing(16)
-        logo = QLabel()
-        logo.setFixedSize(64, 64)
-        _pix = QPixmap(APP_ICON) if os.path.exists(APP_ICON) else QPixmap()
-        if _pix.isNull():
-            # 兜底: logo 文件缺失时退回内置图标
-            logo = IconWidget(FluentIcon.ROBOT)
-            logo.setFixedSize(64, 64)
-        else:
-            logo.setPixmap(_pix.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        h.addWidget(logo)
-        hv = QVBoxLayout()
-        hv.setSpacing(4)
-        name = StrongBodyLabel("VRCVoice")
-        name.setStyleSheet("font-size: 26px; font-weight: 700;")
-        hv.addWidget(name)
-        hv.addWidget(CaptionLabel(tr("VRChat 语音输入助手 · v0.2")))
-        hv.addWidget(CaptionLabel(tr("按住说话 -> 本地/云端 ASR -> OSC / 键盘模拟")))
-        h.addLayout(hv)
-        h.addStretch(1)
-        outer.addWidget(head)
 
         grid = QGridLayout()
         grid.setSpacing(12)
