@@ -1,9 +1,20 @@
 ﻿# VRCVoice 分发版打包脚本
-# 用法: powershell -ExecutionPolicy Bypass -File build_dist.ps1
-# 产出: dist\VRCVoice_分发版_yyyyMMdd.zip (不含个人配置/日志/锁文件)
+# 用法: powershell -ExecutionPolicy Bypass -File build_dist.ps1 [-Version 0.9.1]
+# 产出: dist\VRCVoice_v<版本>.zip (不含个人配置/日志/锁文件)
+param(
+    [string]$Version
+)
+
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $root
+
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = (Get-Content -LiteralPath (Join-Path $root "VERSION") -Raw).Trim()
+}
+if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+    throw "版本号必须为 MAJOR.MINOR.PATCH 格式，当前值: '$Version'"
+}
 
 $pyinstaller = Join-Path $root ".venv\Scripts\pyinstaller.exe"
 $requiredModels = @(
@@ -42,7 +53,7 @@ Get-ChildItem (Join-Path $root "resources\*.json") -File |
 foreach ($name in $requiredModels) {
     Copy-Item -LiteralPath (Join-Path $root "models\$name") -Destination $modelDst -Force
 }
-foreach ($doc in @("README.md", "使用说明.md", "开发与配置.md", "LICENSE")) {
+foreach ($doc in @("README.md", "使用说明.md", "开发与配置.md", "LICENSE", "VERSION")) {
     Copy-Item -LiteralPath (Join-Path $root $doc) -Destination $dst -Force
 }
 
@@ -52,8 +63,7 @@ foreach ($privateFile in @("config.json", "chatlog.json", "vrcvoice.log", "vrcvo
 }
 
 Write-Host "==> 4/4 压缩分发版"
-$stamp = Get-Date -Format "yyyyMMdd"
-$zip = Join-Path $root "dist\VRCVoice_分发版_$stamp.zip"
+$zip = Join-Path $root "dist\VRCVoice_v$Version.zip"
 Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
 Compress-Archive -LiteralPath $dst -DestinationPath $zip -CompressionLevel Optimal
 $size = [math]::Round((Get-Item $zip).Length / 1MB, 1)
