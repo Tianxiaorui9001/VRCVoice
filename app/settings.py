@@ -4,11 +4,25 @@
 import json
 import os
 import copy
+import sys
 
 from .log import app_base_dir, data_dir
 
 APP_DIR = app_base_dir()
 CONFIG_PATH = os.path.join(data_dir(), "config.json")
+
+
+def app_icon_path() -> str:
+    """应用图标路径(托盘/窗口/关于界面共用)。
+    源码: 项目 assets/; 打包: PyInstaller 6.x 资源目录(_internal/assets)。"""
+    if getattr(sys, "frozen", False):
+        base = getattr(sys, "_MEIPASS", APP_DIR)
+    else:
+        base = APP_DIR
+    return os.path.join(base, "assets", "logo.png")
+
+
+APP_ICON = app_icon_path()
 
 DEFAULTS = {
     "general": {

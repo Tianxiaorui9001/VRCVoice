@@ -28,16 +28,12 @@ from app.hotkey import HotkeyListener
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 from PySide6.QtGui import QIcon
 
-from app.settings import Settings
+from app.settings import Settings, APP_ICON
 from app.controller import RecognitionController
 from app.log import log, LOG_PATH, data_dir
 from app.gui.main_window import MainWindow
 from app import crash_dialog
 from app.i18n import tr, L
-
-# 应用图标(托盘/窗口/关于界面共用), 源码=项目 assets, 打包后=exe 旁 assets
-from app.settings import APP_DIR
-APP_ICON = os.path.join(APP_DIR, "assets", "logo.png")
 
 import qfluentwidgets
 from qfluentwidgets import FluentIcon

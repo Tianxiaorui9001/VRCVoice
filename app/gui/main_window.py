@@ -20,7 +20,7 @@ from qfluentwidgets import (
     SmoothScrollArea, IconWidget,
 )
 
-from ..settings import Settings, APP_DIR
+from ..settings import Settings, APP_ICON
 from ..controller import RecognitionController
 from .. import autostart
 from ..i18n import tr
@@ -494,8 +494,7 @@ class AboutPage(CardWidget):
         h.setSpacing(16)
         logo = QLabel()
         logo.setFixedSize(64, 64)
-        _logo_path = os.path.join(APP_DIR, "assets", "logo.png")
-        _pix = QPixmap(_logo_path) if os.path.exists(_logo_path) else QPixmap()
+        _pix = QPixmap(APP_ICON) if os.path.exists(APP_ICON) else QPixmap()
         if _pix.isNull():
             # 兜底: logo 文件缺失时退回内置图标
             logo = IconWidget(FluentIcon.ROBOT)
