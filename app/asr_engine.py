@@ -7,6 +7,7 @@
   tokens.txt
 """
 import os
+import re
 import numpy as np
 import sherpa_onnx
 
@@ -39,6 +40,20 @@ def _prepare_hotwords(hotwords_file: str) -> bool:
         if s and not s.startswith("#"):
             return True
     return False
+
+
+# 模型偶发输出 token 文本(静音 SIL / 未知 UNK), 识别结果里直接剔除。
+# 不用 \b(汉字也算 \w, 边界不生效), 用 ASCII 字母数字前后断言
+_TOKEN_JUNK = re.compile(r"\s*(?<![A-Za-z0-9])(?:SIL|UNK)(?![A-Za-z0-9])")
+
+
+def _clean_result(text: str) -> str:
+    """剔除模型输出的噪声 token(SIL=静音段, UNK=未知词), 压缩多余空格。"""
+    if not text:
+        return ""
+    text = _TOKEN_JUNK.sub("", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    return text.strip()
 
 
 class ASREngine:
@@ -118,10 +133,10 @@ class ASREngine:
         self._stream.accept_waveform(16000, samples)
         while self.recognizer.is_ready(self._stream):
             self.recognizer.decode_stream(self._stream)
-        return self.recognizer.get_result(self._stream)
+        return _clean_result(self.recognizer.get_result(self._stream))
 
     def finalize(self):
         """结束: 返回最终文本。"""
         if self._stream is None:
             return ""
-        return self.recognizer.get_result(self._stream)
+        return _clean_result(self.recognizer.get_result(self._stream))

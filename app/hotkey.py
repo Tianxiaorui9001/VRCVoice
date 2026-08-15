@@ -75,12 +75,17 @@ def parse_key(name: str):
 
 class HotkeyListener:
     def __init__(self, key_name: str, mode: str,
-                 on_start, on_stop, on_toggle=None, release_delay: float = 0.0):
+                 on_start, on_stop, on_toggle=None, release_delay: float = 0.0,
+                 on_is_recording=None):
+        """on_is_recording: 可选回调返回当前是否正在录音。
+        toggle 模式用它自愈状态漂移(静音自动停止/VR 停止不经过 toggle
+        翻转, 会导致按热键翻到"停止"而看似无反应)。"""
         self.key_name = key_name
         self.mode = mode
         self.on_start = on_start
         self.on_stop = on_stop
         self.on_toggle = on_toggle
+        self.on_is_recording = on_is_recording
         self.release_delay = max(0.0, float(release_delay))
         self._listener = None
         self._pressed = False
@@ -128,11 +133,22 @@ class HotkeyListener:
             self._trigger_stop()
 
     def _toggle_flip(self):
-        self._toggle_active = not self._toggle_active
-        if self._toggle_active:
-            self._trigger_start()
+        """toggle 模式: 以实际录音状态为准决定开/停, 不盲翻标志位。
+        修复: 静音自动停止/VR 停止不经 toggle 翻转导致状态漂移 →
+        "已发送"后按热键翻到"停止"看似无反应, 必须按两次才生效。"""
+        if self.on_is_recording is not None:
+            if self.on_is_recording():
+                self._toggle_active = False
+                self._trigger_stop()
+            else:
+                self._toggle_active = True
+                self._trigger_start()
         else:
-            self._trigger_stop()
+            self._toggle_active = not self._toggle_active
+            if self._toggle_active:
+                self._trigger_start()
+            else:
+                self._trigger_stop()
         if self.on_toggle:
             self.on_toggle(self._toggle_active)
 

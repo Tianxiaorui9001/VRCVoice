@@ -242,6 +242,7 @@ def main():
             h = HotkeyListener(
                 key, settings.get("trigger", "mode"),
                 on_start=controller.start, on_stop=controller.stop,
+                on_is_recording=lambda: controller.is_recording,
                 release_delay=settings.get("trigger", "release_delay"))
             h.start()
             hotkey_holder["listener"] = h
