@@ -35,6 +35,10 @@ from app.gui.main_window import MainWindow
 from app import crash_dialog
 from app.i18n import tr, L
 
+# 应用图标(托盘/窗口/关于界面共用), 源码=项目 assets, 打包后=exe 旁 assets
+from app.settings import APP_DIR
+APP_ICON = os.path.join(APP_DIR, "assets", "logo.png")
+
 import qfluentwidgets
 from qfluentwidgets import FluentIcon
 
@@ -50,7 +54,7 @@ class TrayIcon:
         self.window = window
         self.controller = controller
         self.settings = settings
-        self.tray = QSystemTrayIcon(FluentIcon.MICROPHONE.icon(), app)
+        self.tray = QSystemTrayIcon(QIcon(APP_ICON), app)
         self.tray.setToolTip(tr("VRCVoice - 按住说话"))
 
         # 系统托盘必须用 CheckableSystemTrayMenu: 普通 RoundMenu 在托盘菜单里勾选状态不渲染
@@ -171,6 +175,7 @@ def main():
     app = crash_dialog.SafeApp(sys.argv)
     app.setApplicationName("VRCVoice")
     app.setQuitOnLastWindowClosed(False)
+    app.setWindowIcon(QIcon(APP_ICON))
     # 全局异常钩子: 主线程/后台线程/Qt 槽异常都弹窗, 提供退出或重启
     crash_dialog.install()
 

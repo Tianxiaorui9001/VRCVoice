@@ -1,5 +1,9 @@
 # VRCVoice - VRChat 语音输入助手
 
+<p align="center">
+  <img src="assets/logo.png" width="128" alt="VRCVoice">
+</p>
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 ![Platform: Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.12-yellow.svg)

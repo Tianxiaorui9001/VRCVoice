@@ -5,6 +5,7 @@ import threading
 import time
 
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QFileDialog, QLabel, QVBoxLayout, QWidget,
                                QHBoxLayout, QScrollArea, QGridLayout, QFrame,
                                QDialog, QFormLayout, QSpinBox, QMessageBox,
@@ -19,7 +20,7 @@ from qfluentwidgets import (
     SmoothScrollArea, IconWidget,
 )
 
-from ..settings import Settings
+from ..settings import Settings, APP_DIR
 from ..controller import RecognitionController
 from .. import autostart
 from ..i18n import tr
@@ -491,8 +492,16 @@ class AboutPage(CardWidget):
         h = QHBoxLayout(head)
         h.setContentsMargins(20, 18, 20, 18)
         h.setSpacing(16)
-        logo = IconWidget(FluentIcon.ROBOT)
+        logo = QLabel()
         logo.setFixedSize(64, 64)
+        _logo_path = os.path.join(APP_DIR, "assets", "logo.png")
+        _pix = QPixmap(_logo_path) if os.path.exists(_logo_path) else QPixmap()
+        if _pix.isNull():
+            # 兜底: logo 文件缺失时退回内置图标
+            logo = IconWidget(FluentIcon.ROBOT)
+            logo.setFixedSize(64, 64)
+        else:
+            logo.setPixmap(_pix.scaled(64, 64, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         h.addWidget(logo)
         hv = QVBoxLayout()
         hv.setSpacing(4)
