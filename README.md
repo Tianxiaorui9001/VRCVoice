@@ -1,17 +1,29 @@
 # VRCVoice - VRChat 语音输入助手
 
-给"无言势"准备的：按住按键说话，松手即把识别出的文字发给 VRChat（chatbox 显示或真实键盘输入）。
-本地识别（sherpa-onnx），不联网也能用；识别模型与 OpenLess 同款引擎技术。
+> 给 VRChat 里不方便说话的人（静音玩家 / 社恐 / 声带状态不佳）准备的「按住说话」工具：
+> 按住手柄按键或键盘热键说话，松手即把识别出的文字发进 VRChat 聊天框。
 
-## 启动
+本地识别（sherpa-onnx），不联网也能用；也支持云端 ASR（硅基流动 / OpenAI 兼容接口）。
 
-```
+## 快速开始
+
+```bash
+# 克隆
+https://github.com/Tianxiaorui9001/VRCVoice.git
+cd VRCVoice
+
+# 安装依赖
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+
+# 首次使用需下载本地识别模型到 models/ 目录
+# (见 models/download_model.bat，或直接在设置里选云端后端)
+
+# 启动
 start.bat
 ```
-或手动：
-```
-.venv\Scripts\python.exe main.py
-```
+
+详细使用说明（VR 悬浮窗 / 常见问题 / 卸载）见 **[使用说明.md](使用说明.md)**。
 
 ## 功能
 
