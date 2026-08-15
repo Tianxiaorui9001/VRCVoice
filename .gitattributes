@@ -1,0 +1,12 @@
+# 统一仓库行尾, 消除 CRLF/LF 混用
+* text=auto
+
+# bat/ps1 脚本在 Windows 上需要 CRLF
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# 源码统一 LF (checkout 时 Git 会自动转回平台行尾)
+*.py text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf

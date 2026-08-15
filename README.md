@@ -1,5 +1,9 @@
 # VRCVoice - VRChat 语音输入助手
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+![Platform: Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-blue.svg)
+![Python](https://img.shields.io/badge/python-3.12-yellow.svg)
+
 > 给 VRChat 里不方便说话的人（静音玩家 / 社恐 / 声带状态不佳）准备的「按住说话」工具：
 > 按住手柄按键或键盘热键说话，松手即把识别出的文字发进 VRChat 聊天框。
 
