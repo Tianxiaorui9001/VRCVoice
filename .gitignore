@@ -8,13 +8,15 @@ __pycache__/
 build/
 dist/
 
-# ===== 模型(大文件, 需单独下载) =====
-models/
+# ===== 模型(大文件, 需单独下载；保留下载脚本) =====
+models/*
+!models/download_model.bat
 
 # ===== 运行时数据(含本机配置, 勿公开) =====
 config.json
 *.log
 *.lock
+!requirements.lock
 *.out.txt
 _*.txt
 _sout*.txt
