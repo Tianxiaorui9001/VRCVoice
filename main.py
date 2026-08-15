@@ -10,12 +10,26 @@ import time
 if not getattr(sys, "frozen", False):
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# PySide6 6.11's Shiboken import hook can inspect six's meta-path importer.
+# PyInstaller's frozen importer expects loaders it inspects to expose `_path`,
+# while six's importer does not. Add the inert attribute before pynput imports
+# six.moves, avoiding a startup crash without changing either dependency.
+import six
+for _finder in sys.meta_path:
+    if type(_finder).__name__ == "_SixMetaPathImporter" and not hasattr(_finder, "_path"):
+        _finder._path = []
+
+# pynput/six must be imported before PySide6. With PySide6 6.11, importing
+# it afterwards can make Shiboken inspect six's meta-path importer and crash
+# during startup. Importing our hotkey module first avoids that upstream
+# import-order incompatibility for both source and frozen builds.
+from app.hotkey import HotkeyListener
+
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 from PySide6.QtGui import QIcon
 
 from app.settings import Settings
 from app.controller import RecognitionController
-from app.hotkey import HotkeyListener
 from app.log import log, LOG_PATH, data_dir
 from app.gui.main_window import MainWindow
 from app import crash_dialog

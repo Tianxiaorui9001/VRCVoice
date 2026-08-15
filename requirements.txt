@@ -1,9 +1,11 @@
-PySide6>=6.7
-PySide6-Fluent-Widgets>=1.7
-sherpa-onnx>=1.10
-sounddevice>=0.4.6
-pynput>=1.7.6
-python-osc>=1.8.0
-numpy>=1.26
-requests>=2.31
-openvr>=2.12.1401
+PySide6==6.11.1
+PySide6-Fluent-Widgets==1.11.3
+sherpa-onnx==1.13.5
+sounddevice==0.5.5
+pynput==1.8.2
+python-osc==1.10.2
+numpy==2.5.2
+requests==2.34.2
+openvr==2.12.1401
+six==1.17.0
+pywin32==312; sys_platform == "win32"
