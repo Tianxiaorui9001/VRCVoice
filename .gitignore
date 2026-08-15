@@ -51,3 +51,6 @@ _final_probe.py
 _pw_*.py
 hotwords.txt
 presets/
+
+# ===== 本地启动快捷方式(只作源码版启动用, 不入仓库) =====
+/start.bat
