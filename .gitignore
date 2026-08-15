@@ -1,0 +1,49 @@
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# ===== 构建产物 =====
+build/
+dist/
+
+# ===== 模型(大文件, 需单独下载) =====
+models/
+
+# ===== 运行时数据(含本机配置, 勿公开) =====
+config.json
+*.log
+*.lock
+*.out.txt
+_*.txt
+_sout*.txt
+_ts.txt
+_ft.txt
+_ov_out.txt
+_gui_test_out.txt
+_pw_out.txt
+_final_out.txt
+_toggle_out.txt
+_watch*.txt
+_watch.log
+_watch_err.log
+
+# ===== 备份/临时文件 =====
+*.bak
+*.damaged_bak
+
+# ===== 开发期临时脚本(不是产品代码) =====
+_sim_*.py
+_patch*.py
+_probe*.py
+_diag*.py
+_dbg*.py
+_watch*.py
+_test*.py
+_verify*.py
+_enum*.py
+_ov_probe.py
+_struct_test.py
+_final_probe.py
+_pw_*.py

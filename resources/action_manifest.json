@@ -1,0 +1,32 @@
+{
+  "default_bindings": [
+    { "controller_type": "generic", "binding_url": "bindings_hmd.json" },
+    { "controller_type": "pico_controller", "binding_url": "bindings_pico.json" },
+    { "controller_type": "knuckles", "binding_url": "bindings_default.json" },
+    { "controller_type": "oculus_touch", "binding_url": "bindings_oculus.json" },
+    { "controller_type": "oculus_touch_cv1", "binding_url": "bindings_oculus.json" },
+    { "controller_type": "oculus_touch_quest2", "binding_url": "bindings_oculus.json" },
+    { "controller_type": "oculus_touch_quest3", "binding_url": "bindings_oculus.json" },
+    { "controller_type": "oculus_touch_questpro", "binding_url": "bindings_oculus.json" },
+    { "controller_type": "holographic_controller", "binding_url": "bindings_wmr.json" },
+    { "controller_type": "vive_controller", "binding_url": "bindings_vive.json" }
+  ],
+  "actions": [
+    { "name": "/actions/default/in/HoldToTalk", "type": "boolean", "requirement": "optional" },
+    { "name": "/actions/default/in/StickAxis", "type": "vector2", "requirement": "optional" }
+  ],
+  "action_sets": [
+    { "name": "/actions/default", "usage": "single" }
+  ],
+  "localization": [
+    {
+      "language_tag": "zh_CN",
+      "actions": [
+        { "name": "/actions/default/in/HoldToTalk", "string": "按住说话" }
+      ],
+      "action_sets": [
+        { "name": "/actions/default", "string": "语音输入" }
+      ]
+    }
+  ]
+}

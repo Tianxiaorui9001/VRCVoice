@@ -1,0 +1,9 @@
+PySide6>=6.7
+PySide6-Fluent-Widgets>=1.7
+sherpa-onnx>=1.10
+sounddevice>=0.4.6
+pynput>=1.7.6
+python-osc>=1.8.0
+numpy>=1.26
+requests>=2.31
+openvr>=2.12.1401

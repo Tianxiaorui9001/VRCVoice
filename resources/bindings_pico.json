@@ -1,0 +1,21 @@
+{
+  "controller_type": "pico_controller",
+  "bindings": {
+    "/actions/default": {
+      "sources": [
+        {
+          "inputs": {
+            "click": {
+              "output": "/actions/default/in/HoldToTalk"
+            },
+            "position": {
+              "output": "/actions/default/in/StickAxis"
+            }
+          },
+          "mode": "joystick",
+          "path": "/user/hand/left/input/joystick"
+        }
+      ]
+    }
+  }
+}

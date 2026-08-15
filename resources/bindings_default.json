@@ -1,0 +1,18 @@
+{
+  "controller_type": "knuckles",
+  "bindings": {
+    "/actions/default": {
+      "sources": [
+        {
+          "inputs": {
+            "click": {
+              "output": "/actions/default/in/HoldToTalk"
+            }
+          },
+          "mode": "button",
+          "path": "/user/hand/left/input/thumbstick/click"
+        }
+      ]
+    }
+  }
+}

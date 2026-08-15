@@ -1,0 +1,10 @@
+{
+  "controller_type": "generic",
+  "bindings": {
+    "/actions/default": {
+      "haptics": [],
+      "poses": [],
+      "sources": []
+    }
+  }
+}
