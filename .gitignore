@@ -49,3 +49,4 @@ _ov_probe.py
 _struct_test.py
 _final_probe.py
 _pw_*.py
+hotwords.txt
