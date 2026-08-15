@@ -4,6 +4,7 @@
 变成控制字符导致永远匹配不上)。录制快捷键时用 SUPPRESSED 屏蔽触发。
 """
 import threading
+import time
 from pynput import keyboard
 
 # 录制快捷键时置 True, 暂时屏蔽触发(避免边录边触发录音)
@@ -93,6 +94,26 @@ class HotkeyListener:
         self._held = set()
         self._target = self._parse_target()
         self._stop_timer = None
+        self._last_flip = 0.0
+
+    def update(self, key_name=None, mode=None, release_delay=None):
+        """热键参数热更新, 不重启底层 listener。
+        pynput 的 stop() 是异步的(win32 hook 线程不会立即退出), 快速
+        stop+start 重建会新旧两个 hook 并存 → 一次按键被处理两次 →
+        toggle 状态互踩 → start/stop 交替风暴甚至崩溃。所以改键/改模式
+        只更新参数, listener 线程常驻。"""
+        if key_name is not None:
+            self.key_name = key_name
+            self._target = self._parse_target()
+        if mode is not None:
+            self.mode = mode
+        if release_delay is not None:
+            self.release_delay = max(0.0, float(release_delay))
+        # 重置按键状态, 防止旧键的按下/翻转状态残留到新键
+        self._pressed = False
+        self._held.clear()
+        self._toggle_active = False
+        self._cancel_pending_stop()
 
     def _parse_target(self):
         try:
@@ -147,6 +168,10 @@ class HotkeyListener:
         """toggle 模式: 以实际录音状态为准决定开/停, 不盲翻标志位。
         修复: 静音自动停止/VR 停止不经 toggle 翻转导致状态漂移 →
         "已发送"后按热键翻到"停止"看似无反应, 必须按两次才生效。"""
+        now = time.time()
+        if now - self._last_flip < 0.15:
+            return  # 防抖: 双 hook 并存期的事件重放会在同一瞬间重复触发
+        self._last_flip = now
         if self.on_is_recording is not None:
             if self.on_is_recording():
                 self._toggle_active = False

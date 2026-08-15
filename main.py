@@ -258,20 +258,26 @@ def main():
     hotkey_holder = {"listener": None}
 
     def rebuild_hotkey():
-        h = hotkey_holder["listener"]
-        if h is not None:
-            h.stop()
+        # 只更新参数, 不重启 listener: pynput stop() 异步, 快速重建会新旧双 hook
+        # 并存导致一次按键触发两次 → toggle 互踩 → 崩溃。listener 线程常驻。
         key = settings.get("trigger", "pc_hotkey")
+        h = hotkey_holder["listener"]
         if not key:
-            hotkey_holder["listener"] = None
+            if h is not None:
+                h.stop()
+                hotkey_holder["listener"] = None
             return
         try:
-            h = HotkeyListener(
-                key, settings.get("trigger", "mode"),
-                on_start=controller.start, on_stop=controller.stop,
-                on_is_recording=lambda: controller.is_recording,
-                release_delay=settings.get("trigger", "release_delay"))
-            h.start()
+            if h is None:
+                h = HotkeyListener(
+                    key, settings.get("trigger", "mode"),
+                    on_start=controller.start, on_stop=controller.stop,
+                    on_is_recording=lambda: controller.is_recording,
+                    release_delay=settings.get("trigger", "release_delay"))
+                h.start()
+            else:
+                h.update(key, settings.get("trigger", "mode"),
+                         settings.get("trigger", "release_delay"))
             hotkey_holder["listener"] = h
             log(f"[hotkey] 热键已更新: {key}")
         except Exception as e:
