@@ -34,27 +34,18 @@ def _template_header() -> str:
 
 
 def _presets_dir() -> str:
-    """预设词表目录(数据目录/presets), 不存在则创建, 首次放示例 JSON。"""
+    """预设词表目录(数据目录/presets), 不存在则创建。保持为空目录, 不预置示例文件。"""
     d = os.path.join(data_dir(), "presets")
     try:
         os.makedirs(d, exist_ok=True)
-        sample = os.path.join(d, "示例词表.json")
-        if not os.path.exists(sample):
-            with open(sample, "w", encoding="utf-8") as f:
-                json.dump({
-                    "name": "示例词表",
-                    "words": [
-                        {"word": "VRChat", "score": 3.0},
-                        {"word": "龙门石窟", "score": 2.0},
-                    ],
-                }, f, ensure_ascii=False, indent=2)
     except OSError as e:
         log(f"[hotwords] 创建预设目录失败: {e}")
     return d
 
 
 def parse_words(text: str):
-    """解析热词文本 → [(word, score)]: 跳过空行/# 注释(含 BOM 前缀), 忽略坏行。"""
+    """解析热词文本 → [(word, score)]: 跳过空行/# 注释(含 BOM 前缀), 忽略坏行。
+    行格式: 词 [权重]。若最后一段是数字则视为权重, 其余部分拼成词(词可含空格)。"""
     out = []
     for line in text.splitlines():
         s = line.strip().lstrip("\ufeff")
@@ -64,11 +55,15 @@ def parse_words(text: str):
         score = 1.0
         if len(parts) > 1:
             try:
-                score = float(parts[1])
+                score = float(parts[-1])
+                word = " ".join(parts[:-1])
             except ValueError:
                 score = 1.0
-        if parts[0]:
-            out.append((parts[0], score))
+                word = s
+        else:
+            word = parts[0]
+        if word:
+            out.append((word, score))
     return out
 
 
@@ -414,8 +409,9 @@ class HotwordsDialog(QDialog):
         if ext == ".json":
             loaded = load_preset(path)
             if loaded is None:
-                InfoBar.error(tr("导入失败"), tr("JSON 格式不对, 参考示例词表.json"), parent=self,
-                              position=InfoBarPosition.TOP, duration=5000)
+                InfoBar.error(tr("导入失败"),
+                              tr('JSON 格式参考: {"name": "词表名", "words": [{"word": "词", "score": 2.0}]}'),
+                              parent=self, position=InfoBarPosition.TOP, duration=5000)
                 return
             name, words = loaded
         else:
@@ -475,8 +471,8 @@ class HotwordsDialog(QDialog):
         if self.on_saved:
             try:
                 self.on_saved()
-            except Exception:
-                pass
+            except Exception as e:
+                log(f"[hotwords] on_saved 回调异常: {e}")
         InfoBar.success(tr("已保存"), tr("识别热词已更新"), parent=self,
                         position=InfoBarPosition.TOP, duration=3000)
         self.accept()
