@@ -95,6 +95,8 @@ class HotkeyListener:
         self._target = self._parse_target()
         self._stop_timer = None
         self._last_flip = 0.0
+        self._last_start = 0.0
+        self._down = set()  # 当前处于按下状态的键名, 用于识别键盘 repeat
 
     def update(self, key_name=None, mode=None, release_delay=None):
         """热键参数热更新, 不重启底层 listener。
@@ -112,6 +114,7 @@ class HotkeyListener:
         # 重置按键状态, 防止旧键的按下/翻转状态残留到新键
         self._pressed = False
         self._held.clear()
+        self._down.clear()
         self._toggle_active = False
         self._cancel_pending_stop()
 
@@ -132,18 +135,19 @@ class HotkeyListener:
     def _trigger_start(self):
         had_pending = self._stop_timer is not None
         self._cancel_pending_stop()  # 延迟窗口内重新按住 -> 无缝续录
+        if had_pending:
+            return  # release_delay 窗口内的快速再按: 录音未断, 无缝续录(先于防抖)
+        now = time.time()
+        if now - self._last_start < 0.05:
+            return  # 防抖: 双 hook 事件重放(<5ms); repeat 已在 _down 层挡掉, 不误伤快速点按
         if self._pressed:
-            if had_pending:
-                return  # release_delay 窗口内的快速再按: 录音未断, 无缝续录
-            # release 事件丢失(pynput 钩子偶发) → 自愈: 停掉残留录音, 重新开始
-            # 否则 _pressed 永久滞留, 后续按下全被吞 → "按下不理我"
+            # 已处于按住状态 + 正在录音(键盘 repeat 或双事件) → 绝不打断录音
             if self.on_is_recording is not None and self.on_is_recording():
-                try:
-                    self.on_stop()  # 同步停, 避免与下方 start 并发抢锁
-                except Exception:
-                    pass
+                return
+            # 按住状态但录音已不在(静音自动停/VR 停) → 自愈: 清状态重新开始
             self._pressed = False
         self._pressed = True
+        self._last_start = now
         threading.Thread(target=self.on_start, daemon=True).start()
 
     def _trigger_stop(self):
@@ -169,8 +173,8 @@ class HotkeyListener:
         修复: 静音自动停止/VR 停止不经 toggle 翻转导致状态漂移 →
         "已发送"后按热键翻到"停止"看似无反应, 必须按两次才生效。"""
         now = time.time()
-        if now - self._last_flip < 0.15:
-            return  # 防抖: 双 hook 并存期的事件重放会在同一瞬间重复触发
+        if now - self._last_flip < 0.05:
+            return  # 防抖: 双 hook 并存期的事件重放在同一瞬间重复触发(<50ms); 不误伤快速双击
         self._last_flip = now
         if self.on_is_recording is not None:
             if self.on_is_recording():
@@ -208,6 +212,9 @@ class HotkeyListener:
         name = key_to_name(key)
         if name is None:
             return
+        if name in self._down:
+            return  # 键盘 repeat: 键已处于按下状态, 忽略重复派发
+        self._down.add(name)
         if self._is_combo():
             if name not in self._target:
                 return
@@ -233,6 +240,7 @@ class HotkeyListener:
         name = key_to_name(key)
         if name is None:
             return
+        self._down.discard(name)
         if self._is_combo():
             if name not in self._target:
                 return
