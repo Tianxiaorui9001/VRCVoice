@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" width="128" alt="VRCVoice">
+  <img src="assets/logo_big.png" width="128" alt="VRCVoice">
 </p>
 
 
