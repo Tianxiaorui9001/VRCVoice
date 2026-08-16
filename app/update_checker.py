@@ -10,6 +10,7 @@
 import hashlib
 import os
 import re
+import threading
 import time
 from urllib.parse import urlparse
 
@@ -23,7 +24,7 @@ RELEASE_URL = f"https://github.com/{REPO}/releases/latest"
 _HEADERS = {"Accept": "application/vnd.github+json", "User-Agent": "VRCVoice"}
 _TIMEOUT = 8.0
 _DL_TIMEOUT = 30.0          # 单块下载超时(秒)
-_CHUNK = 1 << 20            # 1 MB 分块
+_CHUNK = 256 * 1024         # 256 KB 分块(进度更细腻)
 _PROBE_BYTES = 3 << 20      # 测速窗口(直连前 3MB)
 _MIN_SPEED = 200 * 1024     # 直连最低速率 200KB/s, 低于则切代理
 
@@ -116,63 +117,83 @@ def download_release(asset, dest_path, progress=None, cancel=None):
         return (False, "no-url")
     total = asset.get("size") or 0
     tmp = dest_path + ".part"
-    # 通道: 0=直连(测速), 1=代理(系统代理)
-    for attempt in (0, 1):
-        try:
-            if attempt == 0:
-                s = requests.Session()
-                s.trust_env = False  # 不走系统代理, 直连
-                r = s.get(url, timeout=_DL_TIMEOUT, headers=_HEADERS, stream=True)
-            else:
-                r = requests.get(url, timeout=_DL_TIMEOUT, headers=_HEADERS, stream=True)
-            if r.status_code != 200:
-                return (False, f"HTTP {r.status_code}")
-            done = 0
-            t0 = time.time()
-            slow = False
-            with open(tmp, "wb") as f:
-                for chunk in r.iter_content(chunk_size=_CHUNK):
-                    if cancel is not None and cancel.is_set():
-                        r.close()
-                        _remove(tmp)
-                        return (False, "cancelled")
-                    if chunk:
-                        f.write(chunk)
-                        done += len(chunk)
-                        if progress:
-                            progress(done, total)
-                        # 直连测速: 窗口内速率过低 -> 丢弃切代理重下
-                        if attempt == 0 and done <= _PROBE_BYTES:
-                            el = time.time() - t0
-                            if el > 1.5 and done / el < _MIN_SPEED:
-                                slow = True
-                                break
-            r.close()
-            if not slow:
-                break
-            _remove(tmp)  # 直连太慢, 半成品作废, 走代理通道
-        except Exception:
-            _remove(tmp)
-            if attempt == 1:
-                raise
+    # 取消即时中断: 后台线程轮询 cancel, 置位后立刻 close 响应,
+    # 正在阻塞的 read 会抛异常, 由 except 分支识别为 cancelled
+    cur = {}
+    stop_watch = threading.Event()
+    if cancel is not None:
+        def _watch():
+            while not stop_watch.is_set() and not cancel.is_set():
+                time.sleep(0.15)
+            if cancel.is_set():
+                try:
+                    cur["r"].close()
+                except Exception:
+                    pass
+        threading.Thread(target=_watch, daemon=True).start()
     try:
-        # 校验 sha256 (digest 形如 "sha256:xxxx")
-        digest = asset.get("digest") or ""
-        if digest:
-            algo, _, want = digest.partition(":")
-            if algo == "sha256" and len(want) == 64:
-                h = hashlib.sha256()
-                with open(tmp, "rb") as f:
-                    for c in iter(lambda: f.read(_CHUNK), b""):
-                        h.update(c)
-                if h.hexdigest() != want.lower():
-                    _remove(tmp)
-                    return (False, "sha256-mismatch")
-        os.replace(tmp, dest_path)
-        return (True, "")
-    except Exception as e:
-        _remove(tmp)
-        return (False, str(e))
+        # 通道: 0=直连(测速), 1=代理(系统代理)
+        for attempt in (0, 1):
+            try:
+                if attempt == 0:
+                    s = requests.Session()
+                    s.trust_env = False  # 不走系统代理, 直连
+                    r = s.get(url, timeout=_DL_TIMEOUT, headers=_HEADERS, stream=True)
+                else:
+                    r = requests.get(url, timeout=_DL_TIMEOUT, headers=_HEADERS, stream=True)
+                cur["r"] = r
+                if r.status_code != 200:
+                    return (False, f"HTTP {r.status_code}")
+                done = 0
+                t0 = time.time()
+                slow = False
+                with open(tmp, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=_CHUNK):
+                        if cancel is not None and cancel.is_set():
+                            r.close()
+                            _remove(tmp)
+                            return (False, "cancelled")
+                        if chunk:
+                            f.write(chunk)
+                            done += len(chunk)
+                            if progress:
+                                progress(done, total)
+                            # 直连测速: 窗口内速率过低 -> 丢弃切代理重下
+                            if attempt == 0 and done <= _PROBE_BYTES:
+                                el = time.time() - t0
+                                if el > 1.5 and done / el < _MIN_SPEED:
+                                    slow = True
+                                    break
+                r.close()
+                if not slow:
+                    break
+                _remove(tmp)  # 直连太慢, 半成品作废, 走代理通道
+            except Exception:
+                _remove(tmp)
+                if cancel is not None and cancel.is_set():
+                    return (False, "cancelled")
+                if attempt == 1:
+                    raise
+        try:
+            # 校验 sha256 (digest 形如 "sha256:xxxx")
+            digest = asset.get("digest") or ""
+            if digest:
+                algo, _, want = digest.partition(":")
+                if algo == "sha256" and len(want) == 64:
+                    h = hashlib.sha256()
+                    with open(tmp, "rb") as f:
+                        for c in iter(lambda: f.read(_CHUNK), b""):
+                            h.update(c)
+                    if h.hexdigest() != want.lower():
+                        _remove(tmp)
+                        return (False, "sha256-mismatch")
+            os.replace(tmp, dest_path)
+            return (True, "")
+        except Exception as e:
+            _remove(tmp)
+            return (False, str(e))
+    finally:
+        stop_watch.set()
     
 
 def _remove(path):

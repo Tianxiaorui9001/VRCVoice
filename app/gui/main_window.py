@@ -17,7 +17,7 @@ from qfluentwidgets import (
     SettingCardGroup, SwitchButton, ComboBox, LineEdit, PrimaryPushButton,
     PushButton, InfoBar, InfoBarPosition, CardWidget, BodyLabel,
     CaptionLabel, setTheme, Theme, StrongBodyLabel, ExpandGroupSettingCard,
-    SmoothScrollArea, IconWidget,
+    SmoothScrollArea, IconWidget, ProgressBar,
 )
 
 from ..settings import Settings, APP_BANNER
@@ -633,6 +633,13 @@ class AboutPage(CardWidget):
         self._update_lbl = CaptionLabel("")
         self._update_lbl.setWordWrap(True)
         vt.addWidget(self._update_lbl)
+        # 下载进度条(仅下载中显示; range(0,0)=连接中不确定态)
+        self._dl_bar = ProgressBar()
+        self._dl_bar.setFixedHeight(6)
+        self._dl_bar.setRange(0, 100)
+        self._dl_bar.setValue(0)
+        self._dl_bar.hide()
+        vt.addWidget(self._dl_bar)
 
         for st in [
             tr("免费软件，感谢为这个软件做出过贡献或提出建议的所有人"),
@@ -724,6 +731,7 @@ class AboutPage(CardWidget):
     def _on_update_result(self, text, kind):
         self._state = "ready" if kind == "new" else "idle"
         self._btn_check.setEnabled(True)
+        self._dl_bar.hide()
         if kind == "new":
             self._btn_check.setText(tr("下载"))
             color = "#f59e0b"
@@ -744,8 +752,11 @@ class AboutPage(CardWidget):
         self._cancel = threading.Event()
         self._dl_path = os.path.join(update_dir(), self._asset["name"])
         self._btn_check.setText(tr("取消下载"))
-        self._update_lbl.setText(tr("正在下载 0% (0/0 MB)", pct=0, done=0, total=0))
+        self._update_lbl.setText(tr("正在连接下载服务器..."))
         self._update_lbl.setStyleSheet("color: #8a8a8a;")
+        # 不确定态(流动动画)直到收到第一块数据
+        self._dl_bar.setRange(0, 0)
+        self._dl_bar.show()
         threading.Thread(target=self._dl_worker, daemon=True).start()
 
     def _dl_worker(self):
@@ -757,7 +768,11 @@ class AboutPage(CardWidget):
     def _on_dl_progress(self, done, total):
         if self._state != "downloading":
             return
+        # 第一块数据到达: 切确定进度
+        if self._dl_bar.maximum() == 0 and total > 0:
+            self._dl_bar.setRange(0, 100)
         pct = done * 100 // total if total > 0 else 0
+        self._dl_bar.setValue(min(100, pct))
         text = tr("正在下载 {pct}% ({done}/{total} MB)",
                   pct=pct, done=round(done / 1048576, 1), total=round(total / 1048576, 1))
         self._update_lbl.setText(text)
@@ -771,21 +786,26 @@ class AboutPage(CardWidget):
             self._btn_check.setText(tr("重启并安装"))
             self._update_lbl.setText(tr("下载完成 ({size} MB)", size=size))
             self._update_lbl.setStyleSheet("color: #4ade80;")
+            self._dl_bar.setRange(0, 100)
+            self._dl_bar.setValue(100)
         elif err == "cancelled":
             self._state = "ready"
             self._btn_check.setText(tr("下载"))
             self._update_lbl.setText(tr("已取消下载"))
             self._update_lbl.setStyleSheet("color: #8a8a8a;")
+            self._dl_bar.hide()
         elif err == "sha256-mismatch":
             self._state = "ready"
             self._btn_check.setText(tr("下载"))
             self._update_lbl.setText(tr("下载校验失败，请重试"))
             self._update_lbl.setStyleSheet("color: #ef4444;")
+            self._dl_bar.hide()
         else:
             self._state = "ready"
             self._btn_check.setText(tr("下载"))
             self._update_lbl.setText(tr("下载失败，请检查网络后重试"))
             self._update_lbl.setStyleSheet("color: #ef4444;")
+            self._dl_bar.hide()
 
     # --- 安装(重启替换) ---
 
