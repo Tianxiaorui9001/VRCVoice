@@ -119,6 +119,13 @@ foreach ($name in $requiredModels) {
 foreach ($doc in @("README.md", "使用说明.md", "开发与配置.md", "LICENSE", "VERSION")) {
     Copy-Item -LiteralPath (Join-Path $root $doc) -Destination $dst -Force
 }
+# 语言文件(i18n 从程序目录旁 Language/ 加载, 必须随包分发)
+$langSrc = Join-Path $root "Language"
+if (Test-Path -LiteralPath $langSrc -PathType Container) {
+    $langDst = Join-Path $dst "Language"
+    New-Item -ItemType Directory -Force $langDst | Out-Null
+    Copy-Item (Join-Path $langSrc "*.json") -Destination $langDst -Force
+}
 
 # 个人数据不带进分发版 (首次运行会自动生成)
 foreach ($privateFile in @("config.json", "chatlog.json", "vrcvoice.log", "vrcvoice.lock")) {

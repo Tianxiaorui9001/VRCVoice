@@ -1758,7 +1758,7 @@ class MainWindow(FluentWindow):
             silence_card.setVisible(toggle_only)          # 静音自动停止仅切换模式需要
             silence_threshold_card.setVisible(toggle_only)  # 阈值卡跟随
         trigger_mode = ComboCard(
-            tr("触发模式"), tr("按住: 按住说松开发 / 切换: 按一下开始再按一下结束; PC 快捷键与 VR 摇杆共用此模式"),
+            tr("触发模式"), tr("按住: 按住说话松开发送 / 切换: 按一下开始再按一下结束; PC 快捷键与 VR 摇杆共用此模式"),
             [tr("按住说话"), tr("按一下切换")],
             lambda: s.get("trigger", "mode"),
             lambda v: _apply_trigger_mode(v),
