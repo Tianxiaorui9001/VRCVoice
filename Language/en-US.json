@@ -350,5 +350,13 @@
   "发现新版本 {ver}": "New version {ver} available",
   "已是最新版本 (v{ver})": "You're up to date (v{ver})",
   "检查失败，请检查网络后重试": "Check failed. Please check your network and retry",
-  "下载": "Download"
+  "下载": "Download",
+  "正在下载 {pct}% ({done}/{total} MB)": "Downloading {pct}% ({done}/{total} MB)",
+  "下载完成 ({size} MB)": "Download complete ({size} MB)",
+  "取消下载": "Cancel Download",
+  "重启并安装": "Restart & Install",
+  "下载失败，请检查网络后重试": "Download failed. Please check your network and retry",
+  "下载校验失败，请重试": "Download verification failed. Please retry",
+  "已取消下载": "Download cancelled",
+  "正在安装，请稍候...": "Installing, please wait..."
 }

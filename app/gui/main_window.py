@@ -24,8 +24,39 @@ from ..settings import Settings, APP_BANNER
 from ..controller import RecognitionController
 from .. import autostart
 from ..i18n import tr
-from ..update_checker import local_version, check_latest, RELEASE_URL
+from ..update_checker import (local_version, check_latest, download_release,
+                              update_dir, RELEASE_URL)
 from .log_page import LogPage
+
+# 更新安装脚本(ASCII): %1=zip %2=安装目录 %3=临时解压目录
+# 等待主程序退出 -> 解压 -> 校验 exe -> robocopy 镜像替换 -> 启动新版 -> 清理
+_UPDATER_BAT = r'''@echo off
+rem VRCVoice updater: %%1=zip %%2=install_dir %%3=extract_dir
+set "ZIP=%~1"
+set "DST=%~2"
+set "TMP=%~3"
+if "%ZIP%"=="" goto :fail
+timeout /t 3 /nobreak >nul
+taskkill /IM VRCVoice.exe /F >nul 2>nul
+if exist "%TMP%" rmdir /s /q "%TMP%"
+mkdir "%TMP%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '%ZIP%' -DestinationPath '%TMP%' -Force"
+if errorlevel 1 goto :fail
+set "SRC="
+if exist "%TMP%\VRCVoice\VRCVoice.exe" set "SRC=%TMP%\VRCVoice"
+if not defined SRC if exist "%TMP%\VRCVoice.exe" set "SRC=%TMP%"
+if not defined SRC goto :fail
+if not exist "%DST%" mkdir "%DST%"
+robocopy "%SRC%" "%DST%" /E /MOVE /MIR /NFL /NDL /NJH /NJS /NP >nul
+if errorlevel 8 goto :fail
+start "" "%DST%\VRCVoice.exe"
+del /q "%ZIP%" 2>nul
+rmdir /s /q "%TMP%" 2>nul
+exit /b 0
+:fail
+echo updater failed: %date% %time% zip=%ZIP% dst=%DST% > "%TMP%\updater_error.log" 2>nul
+exit /b 1
+'''
 
 
 class VRCSettingCardGroup(SettingCardGroup):
@@ -481,13 +512,21 @@ class AboutPage(CardWidget):
     """关于面板: 版本信息 / 工作流程 / 模型 / 数据配置 / 致谢。"""
     # 更新检查结果(后台线程 -> 主线程): (显示文本, 状态 new/ok/err)
     _update_sig = Signal(str, str)
+    # 下载进度(后台线程 -> 主线程): (已完成字节, 总字节)
+    _dl_sig = Signal(int, int)
+    # 下载结束: (成功?, 错误描述)
+    _dl_done_sig = Signal(bool, str)
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
-        self._updating = False
-        self._has_update = False
+        self._state = "idle"      # idle/checking/ready/downloading/downloaded/installing
+        self._asset = None        # 新版 zip 资产信息
+        self._dl_path = None      # 下载目标路径
+        self._cancel = None       # threading.Event, 取消下载
         self._update_sig.connect(self._on_update_result)
+        self._dl_sig.connect(self._on_dl_progress)
+        self._dl_done_sig.connect(self._on_dl_done)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(24, 24, 24, 24)
         outer.setSpacing(12)
@@ -646,46 +685,142 @@ class AboutPage(CardWidget):
         """打开项目首页(GitHub 仓库)。"""
         QDesktopServices.openUrl(QUrl("https://github.com/Tianxiaorui9001/VRCVoice"))
 
-    # ---------- 检查更新 ----------
+    # ---------- 检查更新 / 下载 / 安装 ----------
 
     def _on_check_clicked(self):
-        """有新版时按钮变为「下载」, 点击打开 release 页; 否则发起检查。"""
-        if self._has_update:
-            QDesktopServices.openUrl(QUrl(RELEASE_URL))
-            return
-        self._do_check_update()
+        """按钮状态机: 检查更新 / 下载 / 取消下载 / 重启并安装。"""
+        if self._state == "ready":
+            self._start_download()
+        elif self._state == "downloading":
+            if self._cancel is not None:
+                self._cancel.set()
+        elif self._state == "downloaded":
+            self._install_update()
+        else:
+            self._do_check_update()
+
+    # --- 检查 ---
 
     def _do_check_update(self):
-        if self._updating:
+        if self._state in ("checking", "downloading"):
             return
-        self._updating = True
+        self._state = "checking"
         self._btn_check.setEnabled(False)
         self._update_lbl.setText(tr("检查中..."))
         self._update_lbl.setStyleSheet("color: #8a8a8a;")
         threading.Thread(target=self._check_worker, daemon=True).start()
 
     def _check_worker(self):
-        latest, _local, has_update, err = check_latest()
+        latest, _local, has_update, err, asset = check_latest()
         if err:
             self._update_sig.emit(tr("检查失败，请检查网络后重试"), "err")
         elif has_update:
+            self._asset = asset
             self._update_sig.emit(tr("发现新版本 {ver}", ver=latest), "new")
         else:
+            self._asset = None
             self._update_sig.emit(tr("已是最新版本 (v{ver})", ver=latest), "ok")
 
     def _on_update_result(self, text, kind):
-        self._updating = False
+        self._state = "ready" if kind == "new" else "idle"
         self._btn_check.setEnabled(True)
         if kind == "new":
-            self._has_update = True
             self._btn_check.setText(tr("下载"))
             color = "#f59e0b"
         else:
-            self._has_update = False
             self._btn_check.setText(tr("检查更新"))
             color = "#ef4444" if kind == "err" else "#4ade80"
         self._update_lbl.setText(text)
         self._update_lbl.setStyleSheet(f"color: {color};")
+
+    # --- 下载 ---
+
+    def _start_download(self):
+        if not self._asset or not self._asset.get("url"):
+            self._update_lbl.setText(tr("下载失败，请检查网络后重试"))
+            self._update_lbl.setStyleSheet("color: #ef4444;")
+            return
+        self._state = "downloading"
+        self._cancel = threading.Event()
+        self._dl_path = os.path.join(update_dir(), self._asset["name"])
+        self._btn_check.setText(tr("取消下载"))
+        self._update_lbl.setText(tr("正在下载 0% (0/0 MB)", pct=0, done=0, total=0))
+        self._update_lbl.setStyleSheet("color: #8a8a8a;")
+        threading.Thread(target=self._dl_worker, daemon=True).start()
+
+    def _dl_worker(self):
+        ok, err = download_release(self._asset, self._dl_path,
+                                   progress=self._dl_sig.emit,
+                                   cancel=self._cancel)
+        self._dl_done_sig.emit(ok, err)
+
+    def _on_dl_progress(self, done, total):
+        if self._state != "downloading":
+            return
+        pct = done * 100 // total if total > 0 else 0
+        text = tr("正在下载 {pct}% ({done}/{total} MB)",
+                  pct=pct, done=round(done / 1048576, 1), total=round(total / 1048576, 1))
+        self._update_lbl.setText(text)
+
+    def _on_dl_done(self, ok, err):
+        if self._state != "downloading":
+            return
+        if ok:
+            self._state = "downloaded"
+            size = round(os.path.getsize(self._dl_path) / 1048576, 1)
+            self._btn_check.setText(tr("重启并安装"))
+            self._update_lbl.setText(tr("下载完成 ({size} MB)", size=size))
+            self._update_lbl.setStyleSheet("color: #4ade80;")
+        elif err == "cancelled":
+            self._state = "ready"
+            self._btn_check.setText(tr("下载"))
+            self._update_lbl.setText(tr("已取消下载"))
+            self._update_lbl.setStyleSheet("color: #8a8a8a;")
+        elif err == "sha256-mismatch":
+            self._state = "ready"
+            self._btn_check.setText(tr("下载"))
+            self._update_lbl.setText(tr("下载校验失败，请重试"))
+            self._update_lbl.setStyleSheet("color: #ef4444;")
+        else:
+            self._state = "ready"
+            self._btn_check.setText(tr("下载"))
+            self._update_lbl.setText(tr("下载失败，请检查网络后重试"))
+            self._update_lbl.setStyleSheet("color: #ef4444;")
+
+    # --- 安装(重启替换) ---
+
+    def _install_update(self):
+        """写 updater.bat -> 启动独立进程 -> 退出主程序, 由 bat 替换文件并拉起新版。"""
+        import subprocess
+        if not self._dl_path or not os.path.isfile(self._dl_path):
+            self._update_lbl.setText(tr("下载失败，请检查网络后重试"))
+            self._update_lbl.setStyleSheet("color: #ef4444;")
+            return
+        self._state = "installing"
+        self._btn_check.setEnabled(False)
+        self._update_lbl.setText(tr("正在安装，请稍候..."))
+        self._update_lbl.setStyleSheet("color: #f59e0b;")
+        updir = update_dir()
+        bat = os.path.join(updir, "updater.bat")
+        tmp = os.path.join(updir, "extract")
+        if getattr(sys, "frozen", False):
+            install_dir = os.path.dirname(sys.executable)
+        else:
+            install_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        try:
+            with open(bat, "w", encoding="ascii") as f:
+                f.write(_UPDATER_BAT)
+            subprocess.Popen(["cmd", "/c", bat, self._dl_path, install_dir, tmp],
+                             cwd=updir, close_fds=True)
+        except Exception:
+            self._state = "downloaded"
+            self._btn_check.setEnabled(True)
+            self._update_lbl.setText(tr("下载失败，请检查网络后重试"))
+            self._update_lbl.setStyleSheet("color: #ef4444;")
+            return
+        app = QApplication.instance()
+        if app is not None:
+            app.quit()
 
 
 # ---------- 状态页 ----------
