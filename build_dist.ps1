@@ -40,6 +40,61 @@ Write-Host "==> 2/4 PyInstaller 打包"
 & $pyinstaller --clean --noconfirm VRCVoice.spec
 if ($LASTEXITCODE -ne 0) { throw "打包失败" }
 
+Write-Host "==> 2.5/4 瘦身: 清理未使用的 Qt 模块/插件/翻译(体积优化)"
+$dst = Join-Path $root "dist\VRCVoice"
+$qtDir = Join-Path $dst "_internal\PySide6"
+$qtTrim = @(
+    "opengl32sw.dll",          # 软件 OpenGL 渲染(项目不用 OpenGL)
+    "Qt6Quick.dll",            # QML/Quick 全家桶(项目用 Widgets)
+    "Qt6Qml.dll",
+    "Qt6QmlCore.dll",
+    "Qt6QmlModels.dll",
+    "Qt6QmlLocalStorage.dll",
+    "Qt6QuickControls2.dll",
+    "Qt6QuickControls2Impl.dll",
+    "Qt6QuickTemplates2.dll",
+    "Qt6QuickShapes.dll",
+    "Qt6QuickWidgets.dll",
+    "Qt6Pdf.dll",              # PDF
+    "Qt6OpenGL.dll",           # OpenGL
+    "Qt6OpenGLWidgets.dll",
+    "Qt6Network.dll",          # 网络(Qt 侧无用; 项目走 requests)
+    "Qt6Multimedia.dll",       # 多媒体/FFmpeg
+    "Qt6MultimediaWidgets.dll",
+    "Qt6WebSockets.dll",
+    "Qt6WebChannel.dll",
+    "Qt6PrintSupport.dll",
+    "Qt6Sql.dll",
+    "Qt6DBus.dll",
+    "Qt6Test.dll",
+    "Qt6Charts.dll",
+    "Qt6DataVisualization.dll",
+    "Qt63DCore.dll",
+    "Qt63DRender.dll",
+    "Qt6Positioning.dll",
+    "Qt6Sensors.dll",
+    "Qt6SerialPort.dll",
+    "Qt6StateMachine.dll",
+    "Qt6TextToSpeech.dll",
+    "Qt6Bluetooth.dll",
+    "Qt6Nfc.dll",
+    "Qt6Help.dll",
+    "Qt6UiTools.dll",
+    "Qt6Designer.dll",
+    "Qt6WebEngineCore.dll",
+    "Qt6WebEngineWidgets.dll",
+    "Qt6SpatialAudio.dll"
+)
+foreach ($f in $qtTrim) {
+    Remove-Item -LiteralPath (Join-Path $qtDir $f) -Force -ErrorAction SilentlyContinue
+}
+# Qt 自带翻译文件(应用自研 i18n, 不需要)
+Remove-Item -LiteralPath (Join-Path $qtDir "translations") -Recurse -Force -ErrorAction SilentlyContinue
+# 无用平台/输入插件
+foreach ($p in @("plugins\platforms\qdirect2d.dll", "plugins\generic\qtuiotouchplugin.dll", "plugins\platforminputcontexts\qtvirtualkeyboardplugin.dll")) {
+    Remove-Item -LiteralPath (Join-Path $qtDir $p) -Force -ErrorAction SilentlyContinue
+}
+
 Write-Host "==> 3/4 装配资源、模型和文档"
 $dst = Join-Path $root "dist\VRCVoice"
 if (-not (Test-Path -LiteralPath $dst -PathType Container)) {

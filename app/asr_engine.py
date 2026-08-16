@@ -9,7 +9,8 @@
 import os
 import re
 import numpy as np
-import sherpa_onnx
+# 注意: sherpa_onnx 在 _init() 内延迟 import —— 它要加载 onnxruntime.dll(16MB),
+# 放顶层会让主线程启动时被拖住; 延迟到后台模型加载线程后再加载, 启动快很多。
 
 # 热词文件模板(%APPDATA%\VRCVoice\hotwords.txt 首次启动时创建)
 HOTWORDS_TEMPLATE = """# VRCVoice 热词表: 每行一个词, 可带权重(建议 1.0~5.0), 权重越大识别越偏向该词。
@@ -162,6 +163,7 @@ class ASREngine:
         raise last
 
     def _init(self):
+        import sherpa_onnx  # 延迟加载: 详见模块顶部注释
         enc = os.path.join(self.model_dir, "encoder-epoch-99-avg-1.int8.onnx")
         dec = os.path.join(self.model_dir, "decoder-epoch-99-avg-1.onnx")
         joiner = os.path.join(self.model_dir, "joiner-epoch-99-avg-1.int8.onnx")
