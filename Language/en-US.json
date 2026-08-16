@@ -136,7 +136,7 @@
   "识别后端": "Recognition backend",
   "本地离线识别 / 云端不占空间": "Local offline / Cloud saves disk space",
   "云端识别": "Cloud",
-  "识别语言": "Recognition language - Chinese and English only for now; swap the model for other languages",
+  "识别语言": "Recognition language",
   "中英双语": "Chinese + English",
   "中文": "Chinese",
   "英文": "English",
@@ -395,5 +395,6 @@
   "输入词汇…": "Type a word…",
   "预设文件 (*.json);;文本词表 (*.txt);;所有文件 (*)": "Preset files (*.json);;Text word lists (*.txt);;All files (*)",
   "预设目录": "Preset folder",
-  "默认按下左摇杆触发; 触发模式(按住/切换)与 PC 共用; 可在 SteamVR 设置→控制器→绑定布局中修改": "Default: press the left joystick to trigger; trigger mode (hold/toggle) is shared with PC; can be changed in SteamVR Settings → Controllers → Binding Layout"
+  "默认按下左摇杆触发; 触发模式(按住/切换)与 PC 共用; 可在 SteamVR 设置→控制器→绑定布局中修改": "Default: press the left joystick to trigger; trigger mode (hold/toggle) is shared with PC; can be changed in SteamVR Settings → Controllers → Binding Layout",
+  "目前只支持中英，需要别的语言请自行更换模型": "Chinese and English only for now; swap the model for other languages"
 }

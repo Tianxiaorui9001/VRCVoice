@@ -1643,7 +1643,7 @@ class MainWindow(FluentWindow):
             icon=FluentIcon.ROBOT)
         grp.addSettingCard(backend_card)
         grp.addSettingCard(ComboCard(
-            tr("识别语言"), "",
+            tr("识别语言"), tr("目前只支持中英，需要别的语言请自行更换模型"),
             [tr("中英双语"), tr("中文"), tr("英文")],
             lambda: s.get("general", "language"),
             lambda v: s.set("general", "language", v),
