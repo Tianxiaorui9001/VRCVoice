@@ -41,7 +41,9 @@ if "%ZIP%"=="" goto :fail
 rem wait for main proc to exit (ping instead of timeout: timeout errors on redirected stdin)
 ping -n 4 127.0.0.1 >nul
 echo [1] waited >> "%TRACE%"
-taskkill /IM VRCVoice.exe /F /T >nul 2>nul
+rem no /T: bat itself is a child of the main proc, /T would kill cmd (self-kill)
+rem (historical bug: main proc NameError left alive -> os._exit never ran -> /T killed updater)
+taskkill /IM VRCVoice.exe /F >nul 2>nul
 echo [2] taskkill done >> "%TRACE%"
 if exist "%TMP%" rmdir /s /q "%TMP%"
 mkdir "%TMP%"
@@ -885,10 +887,17 @@ class AboutPage(CardWidget):
             self._update_lbl.setStyleSheet("color: #ef4444;")
             return
         # 退出事件循环后立即终止进程: 安装场景无需优雅清理(热键/VR 等),
-        # 直接让 updater.bat 接管, 避免旧进程残留导致新版被单实例锁挡下
-        app = QApplication.instance()
-        if app is not None:
-            app.quit()
+        # 直接让 updater.bat 接管。QApplication 包 try/except: 即使这里出任何
+        # 异常, os._exit(0) 也必须执行, 否则主进程残留会被 bat 的 taskkill
+        # 连坐杀掉(历史 bug: QApplication 未 import 导致 NameError, os._exit
+        # 没跑, 主进程带 crash 弹窗活着, taskkill /T 连坐杀死 bat 自身)
+        try:
+            from PySide6.QtWidgets import QApplication
+            app = QApplication.instance()
+            if app is not None:
+                app.quit()
+        except Exception:
+            pass
         os._exit(0)
 
 
