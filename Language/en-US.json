@@ -359,48 +359,13 @@
   "下载校验失败，请重试": "Download verification failed. Please retry",
   "已取消下载": "Download cancelled",
   "正在安装，请稍候...": "Installing, please wait...",
-  "自动更新": {
-    "zh-CN": "自动更新",
-    "zh-TW": "自動更新",
-    "en-US": "Auto update",
-    "ja": "自動更新"
-  },
-  "启动时检查更新, 有新版本在主页顶部提醒": {
-    "zh-CN": "启动时检查更新, 有新版本在主页顶部提醒",
-    "zh-TW": "啟動時檢查更新, 有新版本在主頁頂部提醒",
-    "en-US": "Check for updates at startup, banner on home page when a new version is available",
-    "ja": "起動時に更新を確認し、新バージョンがあればホーム上部でお知らせ"
-  },
-  "强制检查新版本": {
-    "zh-CN": "强制检查新版本",
-    "zh-TW": "強制檢查新版本",
-    "en-US": "Force check for updates",
-    "ja": "更新を強制チェック"
-  },
-  "开启: 即使已是最新也提示可更新(测试更新流程用)": {
-    "zh-CN": "开启: 即使已是最新也提示可更新(测试更新流程用)",
-    "zh-TW": "開啟: 即使已是最新也提示可更新(測試更新流程用)",
-    "en-US": "On: prompt update even when already latest (for testing the update flow)",
-    "ja": "オン: 最新でも更新を促す(更新フロー動作確認用)"
-  },
-  "发现新版本 v{ver}，点击更新即可一键升级": {
-    "zh-CN": "发现新版本 v{ver}，点击更新即可一键升级",
-    "zh-TW": "發現新版本 v{ver}，點擊更新即可一鍵升級",
-    "en-US": "New version v{ver} available, click Update to upgrade",
-    "ja": "新しいバージョン v{ver} があります。更新をクリックしてアップグレード"
-  },
-  "更新": {
-    "zh-CN": "更新",
-    "zh-TW": "更新",
-    "en-US": "Update",
-    "ja": "更新"
-  },
-  "点击复制到剪贴板": {
-    "zh-CN": "点击复制到剪贴板",
-    "zh-TW": "點擊複製到剪貼簿",
-    "en-US": "Click to copy to clipboard",
-    "ja": "クリックでクリップボードにコピー"
-  },
+  "自动更新": "Auto update",
+  "启动时检查更新, 有新版本在主页顶部提醒": "Check for updates at startup, banner on home page when a new version is available",
+  "强制检查新版本": "Force check for updates",
+  "开启: 即使已是最新也提示可更新(测试更新流程用)": "On: prompt update even when already latest (for testing the update flow)",
+  "发现新版本 v{ver}，点击更新即可一键升级": "New version v{ver} available, click Update to upgrade",
+  "更新": "Update",
+  "点击复制到剪贴板": "Click to copy to clipboard",
   "按住: 按住说话松开发送 / 切换: 按一下开始再按一下结束; PC 快捷键与 VR 摇杆共用此模式": "Hold: press and hold to talk, release to send / Toggle: press once to start, press again to end",
   "JSON 格式参考: {\"name\": \"词表名\", \"words\": [{\"word\": \"词\", \"score\": 2.0}]}": "JSON format: {\"name\": \"list name\", \"words\": [{\"word\": \"word\", \"score\": 2.0}]}",
   "专有名词(人名/游戏名等)识别不准时, 把词加进来并调权重; ": "When proper nouns (names, game titles) are misrecognized, add them here and tune the weight; ",
