@@ -28,33 +28,45 @@ from ..update_checker import (local_version, check_latest, download_release,
                               update_dir, RELEASE_URL)
 from .log_page import LogPage
 
-# 更新安装脚本(ASCII): %1=zip %2=安装目录 %3=临时解压目录
-# 等待主程序退出 -> 解压 -> 校验 exe -> robocopy 镜像替换 -> 启动新版 -> 清理
+# 更新安装脚本(ASCII): 路径在生成时写死进 bat(不依赖 cmd /c 参数传递, 绕开引号解析坑)
+# 每步写 install_trace.log, 主程序 os._exit 后仍可查安装进展/失败原因
 _UPDATER_BAT = r'''@echo off
-rem VRCVoice updater: %%1=zip %%2=install_dir %%3=extract_dir
-set "ZIP=%~1"
-set "DST=%~2"
-set "TMP=%~3"
+rem VRCVoice updater: paths baked in
+set "ZIP={zip}"
+set "DST={dst}"
+set "TMP={tmp}"
+set "TRACE={trace}"
+echo [0] start %date% %time% >> "%TRACE%"
 if "%ZIP%"=="" goto :fail
-timeout /t 3 /nobreak >nul <nul
+rem wait for main proc to exit (ping instead of timeout: timeout errors on redirected stdin)
+ping -n 4 127.0.0.1 >nul
+echo [1] waited >> "%TRACE%"
 taskkill /IM VRCVoice.exe /F /T >nul 2>nul
+echo [2] taskkill done >> "%TRACE%"
 if exist "%TMP%" rmdir /s /q "%TMP%"
 mkdir "%TMP%"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '%ZIP%' -DestinationPath '%TMP%' -Force"
+echo [3] mkdir done >> "%TRACE%"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try {{ Expand-Archive -LiteralPath '{zip}' -DestinationPath '{tmp}' -Force; exit 0 }} catch {{ exit 1 }}"
 if errorlevel 1 goto :fail
+echo [4] extracted >> "%TRACE%"
 set "SRC="
 if exist "%TMP%\VRCVoice\VRCVoice.exe" set "SRC=%TMP%\VRCVoice"
 if not defined SRC if exist "%TMP%\VRCVoice.exe" set "SRC=%TMP%"
 if not defined SRC goto :fail
+echo [5] src=%SRC% >> "%TRACE%"
 if not exist "%DST%" mkdir "%DST%"
 robocopy "%SRC%" "%DST%" /E /MOVE /MIR /NFL /NDL /NJH /NJS /NP >nul
-if errorlevel 8 goto :fail
+set RC=%errorlevel%
+echo [6] robocopy rc=%RC% >> "%TRACE%"
+if %RC% GEQ 8 goto :fail
 start "" "%DST%\VRCVoice.exe"
+echo [7] launched >> "%TRACE%"
 del /q "%ZIP%" 2>nul
 rmdir /s /q "%TMP%" 2>nul
+echo [8] cleaned done >> "%TRACE%"
 exit /b 0
 :fail
-echo updater failed: %date% %time% zip=%ZIP% dst=%DST% > "%TMP%\updater_error.log" 2>nul
+echo [FAIL] %date% %time% zip=%ZIP% dst=%DST% tmp=%TMP% >> "%TRACE%"
 exit /b 1
 '''
 
@@ -824,7 +836,8 @@ class AboutPage(CardWidget):
     # --- 安装(重启替换) ---
 
     def _install_update(self):
-        """写 updater.bat -> 启动独立进程 -> 退出主程序, 由 bat 替换文件并拉起新版。"""
+        """写 updater.bat(路径写死+每步 trace) -> 启动独立进程 -> 退出主程序,
+        由 bat 替换文件并拉起新版。"""
         import subprocess
         if not self._dl_path or not os.path.isfile(self._dl_path):
             self._update_lbl.setText(tr("下载失败，请检查网络后重试"))
@@ -837,17 +850,35 @@ class AboutPage(CardWidget):
         updir = update_dir()
         bat = os.path.join(updir, "updater.bat")
         tmp = os.path.join(updir, "extract")
+        trace = os.path.join(updir, "install_trace.log")
         if getattr(sys, "frozen", False):
             install_dir = os.path.dirname(sys.executable)
         else:
             install_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         try:
+            try:
+                os.remove(trace)
+            except OSError:
+                pass
+            try:
+                os.remove(bat)
+            except OSError:
+                pass
             with open(bat, "w", encoding="ascii") as f:
-                f.write(_UPDATER_BAT)
+                f.write(_UPDATER_BAT.format(zip=self._dl_path, dst=install_dir,
+                                            tmp=tmp, trace=trace))
             flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            subprocess.Popen(["cmd", "/c", bat, self._dl_path, install_dir, tmp],
-                             cwd=updir, close_fds=True, creationflags=flags)
-        except Exception:
+            subprocess.Popen(["cmd", "/c", bat], cwd=updir, close_fds=True,
+                             creationflags=flags)
+            # 给 cmd 一点启动时间, 再退出主程序(安装场景无需优雅清理)
+            time.sleep(0.5)
+        except Exception as e:
+            log(f"[update] 安装启动失败: {e}")
+            try:
+                with open(trace, "a", encoding="ascii") as f:
+                    f.write(f"[POPEN_FAIL] {e}\n")
+            except Exception:
+                pass
             self._state = "downloaded"
             self._btn_check.setEnabled(True)
             self._update_lbl.setText(tr("下载失败，请检查网络后重试"))
