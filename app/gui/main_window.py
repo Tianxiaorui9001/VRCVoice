@@ -1446,15 +1446,19 @@ class MainWindow(FluentWindow):
     def _go_update(self):
         """横幅"更新"按钮: 隐藏横幅 -> 导航到关于页 -> 自动开始下载。"""
         self.status_card.hide_update_banner()
+        # FluentWindow.switchTo 才是真正切页(setCurrentItem 只改选中高亮)
         try:
-            self.navigationInterface.setCurrentWidget(self.about_page)
-        except Exception:
-            pass
+            self.switchTo(self.about_page)
+        except Exception as e:
+            print(f"[update] switchTo 失败: {e}")
+            sw = getattr(self, "stackedWidget", None)
+            if sw is not None:
+                sw.setCurrentWidget(self.about_page)
         ap = self.about_page.widget()
         try:
             ap.start_auto_download()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[update] start_auto_download 失败: {e}")
 
     def _transparent_scroll(self, scroll):
         scroll.setStyleSheet(
