@@ -257,6 +257,7 @@ class RecognitionController:
             except Exception:
                 pass
         self._log_message(text, result, True)
+        self._last_text = result  # 首页"复制"按钮取最终输出(润色/翻译后), 不是原文
         log(f"[controller] AI 润色完成: {result[:60]!r}")
         if self.on_polish:
             self.on_polish(False, result)

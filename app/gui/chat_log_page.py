@@ -6,10 +6,10 @@
 import json
 import os
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget, QScrollArea
 
-from qfluentwidgets import CardWidget, CaptionLabel, BodyLabel, StrongBodyLabel
+from qfluentwidgets import CardWidget, CaptionLabel, BodyLabel, StrongBodyLabel, InfoBar, InfoBarPosition
 
 from ..log import log
 from ..i18n import tr
@@ -21,6 +21,16 @@ CHATLOG_NAME = "chatlog.json"
 def _chatlog_path():
     base = os.environ.get("APPDATA", "")
     return os.path.join(base, "VRCVoice", CHATLOG_NAME)
+
+
+class _ClickCard(CardWidget):
+    """可点击复制卡片: 点击任意处复制该条最终输出。"""
+    clicked = Signal()
+
+    def mouseReleaseEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mouseReleaseEvent(e)
 
 
 class ChatLogPage(QWidget):
@@ -109,7 +119,10 @@ class ChatLogPage(QWidget):
         final = str(entry.get("final", ""))
         polished = bool(entry.get("polished", False))
         ts = str(entry.get("ts", ""))
-        card = CardWidget(self._container)
+        card = _ClickCard(self._container)
+        card.setCursor(Qt.CursorShape.PointingHandCursor)
+        card.setToolTip(tr("点击复制到剪贴板"))
+        card.clicked.connect(lambda c=card, f=final or original: self._copy_entry(c, f))
         v = QVBoxLayout(card)
         v.setContentsMargins(14, 10, 14, 10)
         v.setSpacing(4)
@@ -136,3 +149,14 @@ class ChatLogPage(QWidget):
                 v.addWidget(tag)
         # 插到 stretch 前面
         self._list_lay.insertWidget(self._list_lay.count() - 1, card)
+
+    def _copy_entry(self, card, text):
+        """点击卡片: 复制该条最终输出到剪贴板。"""
+        from PySide6.QtWidgets import QApplication
+        try:
+            QApplication.clipboard().setText(text)
+        except Exception as e:
+            log(f"[chatlog] 复制失败: {e}")
+            return
+        InfoBar.success(tr("已复制"), text[:30], parent=self,
+                        position=InfoBarPosition.TOP, duration=2000)

@@ -49,7 +49,10 @@ class VROverlay:
         return self._ready
 
     def init(self, scale: float = 1.0, x: float = 0.5, y: float = 0.5) -> bool:
-        """创建悬浮窗。SteamVR 未运行/接口不可用时返回 False。"""
+        """创建悬浮窗。SteamVR 未运行/接口不可用时返回 False。
+        若本实例已就绪(重复 init), 先销毁旧 overlay 再重建(重置语义, 防 KeyInUse)。"""
+        if self._ready and self._overlay is not None:
+            self.destroy()
         try:
             import openvr
             import os

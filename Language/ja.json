@@ -395,5 +395,11 @@
     "zh-TW": "更新",
     "en-US": "Update",
     "ja": "更新"
+  },
+  "点击复制到剪贴板": {
+    "zh-CN": "点击复制到剪贴板",
+    "zh-TW": "點擊複製到剪貼簿",
+    "en-US": "Click to copy to clipboard",
+    "ja": "クリックでクリップボードにコピー"
   }
 }

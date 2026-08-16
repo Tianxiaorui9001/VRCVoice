@@ -443,6 +443,10 @@ def main():
 
         def _vr_init():
             retry_timer.stop()
+            # 防重入: 已就绪直接跳过 —— 每 5s 的 SteamVR 检测也会走到这, 重复初始化会
+            # 让新 overlay 因同 pid 同名 KeyInUse 创建失败(表现为悬浮窗"崩"/消失)
+            if vr_state["vr"] is not None and getattr(vr_state["vr"], "_ready", False):
+                return
             vr = VRInput()
             if not vr.init(settings.get("trigger", "vr_action")):
                 log(f"[vr] OpenVR 初始化失败: {getattr(vr, '_last_error', '?')}")
@@ -450,6 +454,13 @@ def main():
             vr_state["vr"] = vr
             log("[vr] OpenVR 就绪, HoldToTalk 动作已加载")
             if settings.get("vr_overlay", "enabled"):
+                # 重置语义: 开新悬浮窗前先销毁旧的(资源堆积/KeyInUse 防护)
+                if vr_state["overlay"] is not None:
+                    try:
+                        vr_state["overlay"].destroy()
+                    except Exception as e:
+                        log(f"[vr] 旧悬浮窗销毁失败: {e}")
+                    vr_state["overlay"] = None
                 ov = VROverlay(settings.get("vr_overlay", "width_px"),
                                settings.get("vr_overlay", "height_px"))
                 if ov.init(scale=settings.get("vr_overlay", "scale"),
