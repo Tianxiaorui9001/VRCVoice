@@ -82,8 +82,17 @@ jobs:
           if (-not (Test-Path -LiteralPath $asset -PathType Leaf)) {
             throw "Expected release asset was not produced: $asset"
           }
-          gh release create $env:RELEASE_TAG $asset `
-            --repo $env:GITHUB_REPOSITORY `
-            --target $env:GITHUB_SHA `
-            --title "VRCVoice $env:RELEASE_TAG" `
-            --generate-notes
+          $notesFile = "RELEASE_NOTES.md"
+          if (Test-Path -LiteralPath $notesFile) {
+            gh release create $env:RELEASE_TAG $asset `
+              --repo $env:GITHUB_REPOSITORY `
+              --target $env:GITHUB_SHA `
+              --title "VRCVoice $env:RELEASE_TAG" `
+              --notes-file $notesFile
+          } else {
+            gh release create $env:RELEASE_TAG $asset `
+              --repo $env:GITHUB_REPOSITORY `
+              --target $env:GITHUB_SHA `
+              --title "VRCVoice $env:RELEASE_TAG" `
+              --generate-notes
+          }
