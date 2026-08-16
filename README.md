@@ -35,6 +35,15 @@
 
 - 虽然该软件是为 VRChat 玩家准备的，但其实只要是有聊天框的软件其实基本都能用的（设置中切换到剪贴板模式就好啦）
 
+## 界面预览
+
+| PC 模式 | VR 模式 |
+| :---: | :---: |
+| ![PC 模式](assets/screenshots/pc_mode.jpg) | ![VR 模式](assets/screenshots/vr_mode.jpg) |
+
+| 主界面 | 关于界面 |
+| :---: | :---: |
+| ![主界面](assets/screenshots/main_ui.png) | ![关于界面](assets/screenshots/about_ui.png) |
 
 ## 使用方法
 
