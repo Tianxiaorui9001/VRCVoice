@@ -10,6 +10,7 @@
 import hashlib
 import os
 import re
+import time
 from urllib.parse import urlparse
 
 import requests
@@ -19,9 +20,12 @@ from .log import app_base_dir, data_dir
 REPO = "Tianxiaorui9001/VRCVoice"
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASE_URL = f"https://github.com/{REPO}/releases/latest"
+_HEADERS = {"Accept": "application/vnd.github+json", "User-Agent": "VRCVoice"}
 _TIMEOUT = 8.0
 _DL_TIMEOUT = 30.0          # 单块下载超时(秒)
 _CHUNK = 1 << 20            # 1 MB 分块
+_PROBE_BYTES = 3 << 20      # 测速窗口(直连前 3MB)
+_MIN_SPEED = 200 * 1024     # 直连最低速率 200KB/s, 低于则切代理
 
 _RE = re.compile(r"\d+\.\d+\.\d+")
 
@@ -51,18 +55,17 @@ def _ver_tuple(v: str):
 def _request(url, timeout, stream=False):
     """双通道请求: 先直连(不走系统代理), 网络异常再走系统代理。
     私有/本机地址永远直连(代理出口可能无法访问, 也无需代理)。"""
-    headers = {"Accept": "application/vnd.github+json", "User-Agent": "VRCVoice"}
     try:
         s = requests.Session()
         s.trust_env = False  # 不走系统代理, 直连
-        return s.get(url, timeout=timeout, headers=headers, stream=stream)
+        return s.get(url, timeout=timeout, headers=_HEADERS, stream=stream)
     except Exception:
         host = (urlparse(url).hostname or "").lower()
         if (host == "localhost" or host.endswith(".local")
                 or host.startswith("127.") or host.startswith("10.")
                 or host.startswith("192.168.") or host.startswith("169.254.")):
             raise
-        return requests.get(url, timeout=timeout, headers=headers, stream=stream)
+        return requests.get(url, timeout=timeout, headers=_HEADERS, stream=stream)
 
 
 def check_latest(timeout: float = _TIMEOUT):
@@ -113,23 +116,46 @@ def download_release(asset, dest_path, progress=None, cancel=None):
         return (False, "no-url")
     total = asset.get("size") or 0
     tmp = dest_path + ".part"
+    # 通道: 0=直连(测速), 1=代理(系统代理)
+    for attempt in (0, 1):
+        try:
+            if attempt == 0:
+                s = requests.Session()
+                s.trust_env = False  # 不走系统代理, 直连
+                r = s.get(url, timeout=_DL_TIMEOUT, headers=_HEADERS, stream=True)
+            else:
+                r = requests.get(url, timeout=_DL_TIMEOUT, headers=_HEADERS, stream=True)
+            if r.status_code != 200:
+                return (False, f"HTTP {r.status_code}")
+            done = 0
+            t0 = time.time()
+            slow = False
+            with open(tmp, "wb") as f:
+                for chunk in r.iter_content(chunk_size=_CHUNK):
+                    if cancel is not None and cancel.is_set():
+                        r.close()
+                        _remove(tmp)
+                        return (False, "cancelled")
+                    if chunk:
+                        f.write(chunk)
+                        done += len(chunk)
+                        if progress:
+                            progress(done, total)
+                        # 直连测速: 窗口内速率过低 -> 丢弃切代理重下
+                        if attempt == 0 and done <= _PROBE_BYTES:
+                            el = time.time() - t0
+                            if el > 1.5 and done / el < _MIN_SPEED:
+                                slow = True
+                                break
+            r.close()
+            if not slow:
+                break
+            _remove(tmp)  # 直连太慢, 半成品作废, 走代理通道
+        except Exception:
+            _remove(tmp)
+            if attempt == 1:
+                raise
     try:
-        r = _request(url, _DL_TIMEOUT, stream=True)
-        if r.status_code != 200:
-            return (False, f"HTTP {r.status_code}")
-        done = 0
-        with open(tmp, "wb") as f:
-            for chunk in r.iter_content(chunk_size=_CHUNK):
-                if cancel is not None and cancel.is_set():
-                    r.close()
-                    _remove(tmp)
-                    return (False, "cancelled")
-                if chunk:
-                    f.write(chunk)
-                    done += len(chunk)
-                    if progress:
-                        progress(done, total)
-        r.close()
         # 校验 sha256 (digest 形如 "sha256:xxxx")
         digest = asset.get("digest") or ""
         if digest:
@@ -147,7 +173,7 @@ def download_release(asset, dest_path, progress=None, cancel=None):
     except Exception as e:
         _remove(tmp)
         return (False, str(e))
-
+    
 
 def _remove(path):
     try:
