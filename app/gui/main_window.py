@@ -1,4 +1,4 @@
-"""所有设置项都绑定 Settings 对象, 修改即保存, 无硬编码。"""
+﻿"""所有设置项都绑定 Settings 对象, 修改即保存, 无硬编码。"""
 import os
 import sys
 import threading
@@ -36,8 +36,8 @@ set "ZIP=%~1"
 set "DST=%~2"
 set "TMP=%~3"
 if "%ZIP%"=="" goto :fail
-timeout /t 3 /nobreak >nul
-taskkill /IM VRCVoice.exe /F >nul 2>nul
+timeout /t 3 /nobreak >nul <nul
+taskkill /IM VRCVoice.exe /F /T >nul 2>nul
 if exist "%TMP%" rmdir /s /q "%TMP%"
 mkdir "%TMP%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -LiteralPath '%ZIP%' -DestinationPath '%TMP%' -Force"
@@ -524,6 +524,7 @@ class AboutPage(CardWidget):
         self._asset = None        # 新版 zip 资产信息
         self._dl_path = None      # 下载目标路径
         self._cancel = None       # threading.Event, 取消下载
+        self._auto_dl = False     # 横幅"更新"按钮: 检查到新版后自动开始下载
         self._update_sig.connect(self._on_update_result)
         self._dl_sig.connect(self._on_dl_progress)
         self._dl_done_sig.connect(self._on_dl_done)
@@ -718,7 +719,8 @@ class AboutPage(CardWidget):
         threading.Thread(target=self._check_worker, daemon=True).start()
 
     def _check_worker(self):
-        latest, _local, has_update, err, asset = check_latest()
+        force = bool(self.settings.get("debug", "force_check_update"))
+        latest, _local, has_update, err, asset = check_latest(force=force)
         if err:
             self._update_sig.emit(tr("检查失败，请检查网络后重试"), "err")
         elif has_update:
@@ -740,7 +742,19 @@ class AboutPage(CardWidget):
             color = "#ef4444" if kind == "err" else "#4ade80"
         self._update_lbl.setText(text)
         self._update_lbl.setStyleSheet(f"color: {color};")
+        # 横幅"更新"按钮触发: 检查到新版后自动开始下载
+        if kind == "new" and self._auto_dl:
+            self._auto_dl = False
+            self._start_download()
 
+    def start_auto_download(self):
+        """首页横幅"更新"按钮: 导航到关于页后自动下载新版。"""
+        if self._state == "ready" and self._asset:
+            self._start_download()
+        elif self._state == "idle":
+            self._auto_dl = True
+            self._do_check_update()
+        # checking/downloading/downloaded/installing: 不做额外动作
     # --- 下载 ---
 
     def _start_download(self):
@@ -830,17 +844,21 @@ class AboutPage(CardWidget):
         try:
             with open(bat, "w", encoding="ascii") as f:
                 f.write(_UPDATER_BAT)
+            flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             subprocess.Popen(["cmd", "/c", bat, self._dl_path, install_dir, tmp],
-                             cwd=updir, close_fds=True)
+                             cwd=updir, close_fds=True, creationflags=flags)
         except Exception:
             self._state = "downloaded"
             self._btn_check.setEnabled(True)
             self._update_lbl.setText(tr("下载失败，请检查网络后重试"))
             self._update_lbl.setStyleSheet("color: #ef4444;")
             return
+        # 退出事件循环后立即终止进程: 安装场景无需优雅清理(热键/VR 等),
+        # 直接让 updater.bat 接管, 避免旧进程残留导致新版被单实例锁挡下
         app = QApplication.instance()
         if app is not None:
             app.quit()
+        os._exit(0)
 
 
 # ---------- 状态页 ----------
@@ -855,10 +873,30 @@ class StatusPage(CardWidget):
         super().__init__(parent)
         self.controller = controller
         self.settings = settings
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(24, 24, 24, 24)
-        outer.setSpacing(12)
-        outer.addWidget(StrongBodyLabel(tr("主页")))
+        self._outer = QVBoxLayout(self)
+        self._outer.setContentsMargins(24, 24, 24, 24)
+        self._outer.setSpacing(12)
+        # 更新横幅(发现新版本时显示): 轻量提醒, 不弹窗不打断
+        self._banner = CardWidget()
+        self._banner.setVisible(False)
+        hb = QHBoxLayout(self._banner)
+        hb.setContentsMargins(16, 10, 16, 10)
+        hb.setSpacing(10)
+        ic = IconWidget(FluentIcon.UPDATE)
+        ic.setFixedSize(20, 20)
+        hb.addWidget(ic)
+        self._banner_lbl = BodyLabel("")
+        self._banner_lbl.setWordWrap(True)
+        hb.addWidget(self._banner_lbl, 1)
+        self._banner_btn = PrimaryPushButton(tr("更新"))
+        self._banner_btn.clicked.connect(self._banner_update_clicked)
+        hb.addWidget(self._banner_btn)
+        self._banner.setStyleSheet(
+            "CardWidget { background: rgba(245, 158, 11, 0.10);"
+            " border: 1px solid rgba(245, 158, 11, 0.45); border-radius: 8px; }")
+        self._on_banner_update = None
+        self._outer.addWidget(self._banner)
+        self._outer.addWidget(StrongBodyLabel(tr("主页")))
 
         grid = QGridLayout()
         grid.setSpacing(12)
@@ -918,7 +956,7 @@ class StatusPage(CardWidget):
         grid.addWidget(card_last, 1, 0, 1, 2)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
-        outer.addLayout(grid, 1)
+        self._outer.addLayout(grid, 1)
 
         # --- 使用说明(全宽单卡) ---
         tips_card = CardWidget()
@@ -938,7 +976,7 @@ class StatusPage(CardWidget):
             lbl = CaptionLabel(t)
             lbl.setWordWrap(True)
             vt.addWidget(lbl)
-        outer.addWidget(tips_card)
+        self._outer.addWidget(tips_card)
 
         self._state_sig.connect(self._on_state)
         self._partial_sig.connect(self._on_partial)
@@ -963,6 +1001,24 @@ class StatusPage(CardWidget):
         box = QWidget()
         box.setLayout(row)
         return box
+
+    # --- 更新横幅(启动检查发现新版本时显示) ---
+
+    def show_update_banner(self, ver: str, on_update):
+        """显示顶部更新提醒横幅。on_update: 点击"更新"后的回调。"""
+        self._banner_lbl.setText(tr("发现新版本 v{ver}，点击更新即可一键升级", ver=ver))
+        self._on_banner_update = on_update
+        self._banner.setVisible(True)
+
+    def hide_update_banner(self):
+        self._banner.setVisible(False)
+
+    def _banner_update_clicked(self):
+        if self._on_banner_update is not None:
+            cb = self._on_banner_update
+            self._on_banner_update = None
+            cb()
+
 
     def _init_model(self, backend: str):
         """异步加载模型, 失败写日志, 不阻塞界面。"""
@@ -1282,6 +1338,7 @@ class _ModelEditDialog(QDialog):
 class MainWindow(FluentWindow):
     _test_done = Signal(list)  # 一键测试结果 [(idx, ok, msg)] 后台线程 -> 主线程
     _tr_test_done = Signal(str, str)  # 翻译测试结果 (state, text) 后台线程 -> 主线程
+    _banner_sig = Signal(str)   # 启动检查发现新版本(后台线程 -> 主线程)
 
     def __init__(self, settings: Settings, controller: RecognitionController,
                  on_hotkey_changed=None):
@@ -1360,6 +1417,44 @@ class MainWindow(FluentWindow):
         self.about_page.setObjectName("aboutPage")
         self.addSubInterface(self.about_page, FluentIcon.INFO, tr("关于"),
                              NavigationItemPosition.BOTTOM)
+
+        # 启动检查更新(自动更新设置开启时): 延迟等窗口就绪, 有新版本 -> 首页横幅
+        self._banner_sig.connect(self._on_banner)
+        QTimer.singleShot(2500, self._startup_update_check)
+
+    def _startup_update_check(self):
+        """启动后台检查更新: 有新版且自动更新开启 -> 首页顶部横幅提醒。"""
+        try:
+            if not self.settings.get("general", "auto_update"):
+                return
+        except Exception:
+            return
+        threading.Thread(target=self._startup_update_worker, daemon=True).start()
+
+    def _startup_update_worker(self):
+        try:
+            latest, _local, has_update, err, _asset = check_latest()
+        except Exception:
+            return
+        if not err and has_update and latest:
+            self._banner_sig.emit(latest)
+
+    def _on_banner(self, ver):
+        """主线程: 显示首页更新横幅。"""
+        self.status_card.show_update_banner(ver, self._go_update)
+
+    def _go_update(self):
+        """横幅"更新"按钮: 隐藏横幅 -> 导航到关于页 -> 自动开始下载。"""
+        self.status_card.hide_update_banner()
+        try:
+            self.navigationInterface.setCurrentWidget(self.about_page)
+        except Exception:
+            pass
+        ap = self.about_page.widget()
+        try:
+            ap.start_auto_download()
+        except Exception:
+            pass
 
     def _transparent_scroll(self, scroll):
         scroll.setStyleSheet(
@@ -1769,6 +1864,11 @@ class MainWindow(FluentWindow):
             tr("启用系统托盘"), tr("关掉就只剩窗口"), lambda: s.get("general", "tray_enabled"),
             lambda v: s.set("general", "tray_enabled", v),
             icon=FluentIcon.CAFE))
+        grp.addSettingCard(SwitchCard(
+            tr("自动更新"), tr("启动时检查更新, 有新版本在主页顶部提醒"),
+            lambda: s.get("general", "auto_update"),
+            lambda v: s.set("general", "auto_update", v),
+            icon=FluentIcon.UPDATE))
         layout.addWidget(grp)
 
         debug_grp = ExpandGroupSettingCard(
@@ -1790,6 +1890,12 @@ class MainWindow(FluentWindow):
             lambda: s.get("debug", "show_heartbeat_log"),
             lambda v: s.set("debug", "show_heartbeat_log", v),
             icon=FluentIcon.HEART))
+        debug_grp.addGroupWidget(SwitchCard(
+            tr("强制检查新版本"),
+            tr("开启: 即使已是最新也提示可更新(测试更新流程用)"),
+            lambda: s.get("debug", "force_check_update"),
+            lambda v: s.set("debug", "force_check_update", v),
+            icon=FluentIcon.UPDATE))
         debug_grp.addGroupWidget(ButtonCard(
             tr("重置模型"), tr("模型加载失败或卡住时重载 ASR 引擎"),
             tr("重置"), self._reload_model, icon=FluentIcon.UPDATE))

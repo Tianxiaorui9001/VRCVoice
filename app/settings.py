@@ -43,6 +43,7 @@ DEFAULTS = {
         "start_minimized": False,     # 启动后最小化到托盘
         "tray_enabled": True,         # 启用系统托盘
         "show_overlay_in_vr": True,   # VR 悬浮窗开关
+        "auto_update": True,          # 启动时自动检查更新, 有新版本状态页横幅提醒
     },
     "recognition": {
         "backend": "local",            # local=sherpa-onnx本地 / cloud=云端API
@@ -123,6 +124,7 @@ DEFAULTS = {
     "debug": {
         "ignore_vrc_check": False,    # 无视 VRChat 进程检测: 关=必须 VRChat 启动才工作; 开=不启动也能测试
         "show_heartbeat_log": False,  # 显示 VR 心跳日志(每 3 秒一条), 默认关避免刷屏
+        "force_check_update": False,  # 强制检查新版本: 即使已是最新也提示可更新(测试更新流程用)
     },
 }
 

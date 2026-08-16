@@ -69,13 +69,13 @@ def _request(url, timeout, stream=False):
         return requests.get(url, timeout=timeout, headers=_HEADERS, stream=stream)
 
 
-def check_latest(timeout: float = _TIMEOUT):
+def check_latest(timeout: float = _TIMEOUT, force: bool = False):
     """检查最新版本。
 
     返回 (latest, local, has_update, err, asset):
       latest      远端最新版本号, 检查失败时为 None
       local       本地版本号
-      has_update  latest > local
+      has_update  latest > local (force=True 时已是最新也返回 True)
       err         空串=成功; 非空=失败原因
       asset       最新版 zip 资产信息 dict(name/url/size/digest), 失败或无 zip 时为 None
     """
@@ -100,7 +100,8 @@ def check_latest(timeout: float = _TIMEOUT):
                     "digest": a.get("digest") or "",
                 }
                 break
-        return (latest, local, _ver_tuple(latest) > _ver_tuple(local), "", asset)
+        has_update = _ver_tuple(latest) > _ver_tuple(local) or force
+        return (latest, local, has_update, "", asset)
     except Exception as e:
         return (None, local, False, str(e), None)
 
