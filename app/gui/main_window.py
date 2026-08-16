@@ -24,6 +24,7 @@ from ..settings import Settings, APP_BANNER
 from ..controller import RecognitionController
 from .. import autostart
 from ..i18n import tr
+from ..update_checker import local_version, check_latest, RELEASE_URL
 from .log_page import LogPage
 
 
@@ -478,10 +479,15 @@ class DebugStatusCard(CardWidget):
 
 class AboutPage(CardWidget):
     """关于面板: 版本信息 / 工作流程 / 模型 / 数据配置 / 致谢。"""
+    # 更新检查结果(后台线程 -> 主线程): (显示文本, 状态 new/ok/err)
+    _update_sig = Signal(str, str)
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
+        self._updating = False
+        self._has_update = False
+        self._update_sig.connect(self._on_update_result)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(24, 24, 24, 24)
         outer.setSpacing(12)
@@ -573,6 +579,22 @@ class AboutPage(CardWidget):
         vt.setContentsMargins(16, 14, 16, 14)
         vt.setSpacing(8)
         vt.addWidget(self._title(FluentIcon.HEART, tr("致谢")))
+
+        # 版本 + 检查更新
+        row_ver = QHBoxLayout()
+        row_ver.setSpacing(8)
+        ver_lbl = BodyLabel(tr("当前版本 v{ver}", ver=local_version()))
+        ver_lbl.setWordWrap(True)
+        row_ver.addWidget(ver_lbl)
+        row_ver.addStretch(1)
+        self._btn_check = PushButton(tr("检查更新"))
+        self._btn_check.clicked.connect(self._on_check_clicked)
+        row_ver.addWidget(self._btn_check)
+        vt.addLayout(row_ver)
+        self._update_lbl = CaptionLabel("")
+        self._update_lbl.setWordWrap(True)
+        vt.addWidget(self._update_lbl)
+
         for st in [
             tr("免费软件，感谢为这个软件做出过贡献或提出建议的所有人"),
             tr("使用中遇到问题或想提建议, 欢迎反馈"),
@@ -623,6 +645,47 @@ class AboutPage(CardWidget):
     def _open_home(self):
         """打开项目首页(GitHub 仓库)。"""
         QDesktopServices.openUrl(QUrl("https://github.com/Tianxiaorui9001/VRCVoice"))
+
+    # ---------- 检查更新 ----------
+
+    def _on_check_clicked(self):
+        """有新版时按钮变为「下载」, 点击打开 release 页; 否则发起检查。"""
+        if self._has_update:
+            QDesktopServices.openUrl(QUrl(RELEASE_URL))
+            return
+        self._do_check_update()
+
+    def _do_check_update(self):
+        if self._updating:
+            return
+        self._updating = True
+        self._btn_check.setEnabled(False)
+        self._update_lbl.setText(tr("检查中..."))
+        self._update_lbl.setStyleSheet("color: #8a8a8a;")
+        threading.Thread(target=self._check_worker, daemon=True).start()
+
+    def _check_worker(self):
+        latest, _local, has_update, err = check_latest()
+        if err:
+            self._update_sig.emit(tr("检查失败，请检查网络后重试"), "err")
+        elif has_update:
+            self._update_sig.emit(tr("发现新版本 {ver}", ver=latest), "new")
+        else:
+            self._update_sig.emit(tr("已是最新版本 (v{ver})", ver=latest), "ok")
+
+    def _on_update_result(self, text, kind):
+        self._updating = False
+        self._btn_check.setEnabled(True)
+        if kind == "new":
+            self._has_update = True
+            self._btn_check.setText(tr("下载"))
+            color = "#f59e0b"
+        else:
+            self._has_update = False
+            self._btn_check.setText(tr("检查更新"))
+            color = "#ef4444" if kind == "err" else "#4ade80"
+        self._update_lbl.setText(text)
+        self._update_lbl.setStyleSheet(f"color: {color};")
 
 
 # ---------- 状态页 ----------

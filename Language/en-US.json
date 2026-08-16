@@ -1,4 +1,4 @@
-{
+﻿{
   "开": "On",
   "关": "Off",
   "左 Ctrl": "Left Ctrl",
@@ -343,5 +343,12 @@
   "按住: 按住说松开发 / 切换: 按一下开始再按一下结束; PC 快捷键与 VR 摇杆共用此模式": "Hold: hold to talk, release to send / Toggle: press once to start, press again to send; shared by PC hotkey and VR controller",
   "桌面模式运行中": "Running (Desktop)",
   "VR 模式运行中 (SteamVR)": "Running in VR (SteamVR)",
-  "VRChat: {status}": "VRChat: {status}"
+  "VRChat: {status}": "VRChat: {status}",
+  "当前版本 v{ver}": "Current version v{ver}",
+  "检查更新": "Check for Updates",
+  "检查中...": "Checking...",
+  "发现新版本 {ver}": "New version {ver} available",
+  "已是最新版本 (v{ver})": "You're up to date (v{ver})",
+  "检查失败，请检查网络后重试": "Check failed. Please check your network and retry",
+  "下载": "Download"
 }
