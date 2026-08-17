@@ -372,7 +372,7 @@ class RecognitionController:
         result = result.rstrip("。.．")
         # 输出守卫: 结果长度远超原文视为被带跑/注入, 回退原文。
         # 预设风格严格(max(3x, x+40)); 自定义风格是用户指定要的风格化输出,
-        # 天生可能扩写(如雌小鬼句式), 放宽到 max(8x, x+200), 仅拦明显离谱的越狱输出。
+        # 天生可能扩写(如风格化句式), 放宽到 max(8x, x+200), 仅拦明显离谱的越狱输出。
         if s.get("style") == "custom":
             limit = max(len(text) * 8, len(text) + 200)
         else:

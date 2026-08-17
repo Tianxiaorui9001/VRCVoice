@@ -51,6 +51,7 @@ _final_probe.py
 _pw_*.py
 hotwords.txt
 presets/*
+!presets/VRChat热词预设.json
 
 
 # ===== 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷莘锟绞?只锟斤拷源锟斤拷锟斤拷锟斤拷锟斤拷锟? 锟斤拷锟斤拷挚锟? =====

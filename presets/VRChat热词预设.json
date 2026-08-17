@@ -1,0 +1,425 @@
+{
+  "name": "VRChat 预设",
+  "words": [
+    {
+      "word": "无言势",
+      "score": 5.0
+    },
+    {
+      "word": "ERP",
+      "score": 5.0
+    },
+    {
+      "word": "改模",
+      "score": 5.0
+    },
+    {
+      "word": "小设置",
+      "score": 5.0
+    },
+    {
+      "word": "大设置",
+      "score": 5.0
+    },
+    {
+      "word": "麦",
+      "score": 5.0
+    },
+    {
+      "word": "OSC",
+      "score": 5.0
+    },
+    {
+      "word": "笔",
+      "score": 5.0
+    },
+    {
+      "word": "VRC+",
+      "score": 5.0
+    },
+    {
+      "word": "闲鱼",
+      "score": 5.0
+    },
+    {
+      "word": "成品模",
+      "score": 5.0
+    },
+    {
+      "word": "底模",
+      "score": 5.0
+    },
+    {
+      "word": "拍立得",
+      "score": 5.0
+    },
+    {
+      "word": "好友+",
+      "score": 5.0
+    },
+    {
+      "word": "邀请+",
+      "score": 5.0
+    },
+    {
+      "word": "红灯",
+      "score": 5.0
+    },
+    {
+      "word": "橙灯",
+      "score": 5.0
+    },
+    {
+      "word": "绿灯",
+      "score": 5.0
+    },
+    {
+      "word": "蓝灯",
+      "score": 5.0
+    },
+    {
+      "word": "人称代词",
+      "score": 5.0
+    },
+    {
+      "word": "V睡",
+      "score": 5.0
+    },
+    {
+      "word": "VR",
+      "score": 5.0
+    },
+    {
+      "word": "PICO",
+      "score": 5.0
+    },
+    {
+      "word": "QUEST",
+      "score": 5.0
+    },
+    {
+      "word": "VIVE",
+      "score": 5.0
+    },
+    {
+      "word": "动骨",
+      "score": 5.0
+    },
+    {
+      "word": "绑骨",
+      "score": 5.0
+    },
+    {
+      "word": "眼追",
+      "score": 5.0
+    },
+    {
+      "word": "串流",
+      "score": 5.0
+    },
+    {
+      "word": "丢追",
+      "score": 5.0
+    },
+    {
+      "word": "STEAMVR",
+      "score": 5.0
+    },
+    {
+      "word": "TRACKER",
+      "score": 5.0
+    },
+    {
+      "word": "史莱姆",
+      "score": 5.0
+    },
+    {
+      "word": "腿环",
+      "score": 5.0
+    },
+    {
+      "word": "模型房",
+      "score": 5.0
+    },
+    {
+      "word": "人棍",
+      "score": 5.0
+    },
+    {
+      "word": "你冲Q币吗",
+      "score": 5.0
+    },
+    {
+      "word": "公开房",
+      "score": 5.0
+    },
+    {
+      "word": "群组房",
+      "score": 5.0
+    },
+    {
+      "word": "私人房",
+      "score": 5.0
+    },
+    {
+      "word": "风景图",
+      "score": 5.0
+    },
+    {
+      "word": "游戏图",
+      "score": 5.0
+    },
+    {
+      "word": "主世界",
+      "score": 5.0
+    },
+    {
+      "word": "中文吧",
+      "score": 5.0
+    },
+    {
+      "word": "面捕",
+      "score": 5.0
+    },
+    {
+      "word": "动捕",
+      "score": 5.0
+    },
+    {
+      "word": "模型替身",
+      "score": 5.0
+    },
+    {
+      "word": "UNITY",
+      "score": 5.0
+    },
+    {
+      "word": "VCC",
+      "score": 5.0
+    },
+    {
+      "word": "ALCOM",
+      "score": 5.0
+    },
+    {
+      "word": "SDK",
+      "score": 5.0
+    },
+    {
+      "word": "DPS",
+      "score": 5.0
+    },
+    {
+      "word": "PCS",
+      "score": 5.0
+    },
+    {
+      "word": "SPS",
+      "score": 5.0
+    },
+    {
+      "word": "CAD",
+      "score": 5.0
+    },
+    {
+      "word": "PS",
+      "score": 5.0
+    },
+    {
+      "word": "BLENDER",
+      "score": 5.0
+    },
+    {
+      "word": "猫娘",
+      "score": 5.0
+    },
+    {
+      "word": "紫名",
+      "score": 5.0
+    },
+    {
+      "word": "橙名",
+      "score": 5.0
+    },
+    {
+      "word": "绿名",
+      "score": 5.0
+    },
+    {
+      "word": "蓝名",
+      "score": 5.0
+    },
+    {
+      "word": "萌心",
+      "score": 5.0
+    },
+    {
+      "word": "长期玩家",
+      "score": 5.0
+    },
+    {
+      "word": "资深玩家",
+      "score": 5.0
+    },
+    {
+      "word": "MA",
+      "score": 5.0
+    },
+    {
+      "word": "VRCFURY",
+      "score": 5.0
+    },
+    {
+      "word": "光源",
+      "score": 5.0
+    },
+    {
+      "word": "圆盘菜单",
+      "score": 5.0
+    },
+    {
+      "word": "SHADER",
+      "score": 5.0
+    },
+    {
+      "word": "EAC",
+      "score": 5.0
+    },
+    {
+      "word": "BOOTH",
+      "score": 5.0
+    },
+    {
+      "word": "FBX",
+      "score": 5.0
+    },
+    {
+      "word": "VKET",
+      "score": 5.0
+    },
+    {
+      "word": "FALLBACK",
+      "score": 5.0
+    },
+    {
+      "word": "GUMROAD",
+      "score": 5.0
+    },
+    {
+      "word": "DISCORD",
+      "score": 5.0
+    },
+    {
+      "word": "AVATAR",
+      "score": 5.0
+    },
+    {
+      "word": "盗模",
+      "score": 5.0
+    },
+    {
+      "word": "炸房",
+      "score": 5.0
+    },
+    {
+      "word": "伪音",
+      "score": 5.0
+    },
+    {
+      "word": "萝莉",
+      "score": 5.0
+    },
+    {
+      "word": "捏脸",
+      "score": 5.0
+    },
+    {
+      "word": "捏人",
+      "score": 5.0
+    },
+    {
+      "word": "白模",
+      "score": 5.0
+    },
+    {
+      "word": "动态骨",
+      "score": 5.0
+    },
+    {
+      "word": "蒙皮",
+      "score": 5.0
+    },
+    {
+      "word": "全身追踪",
+      "score": 5.0
+    },
+    {
+      "word": "着色器",
+      "score": 5.0
+    },
+    {
+      "word": "贴图",
+      "score": 5.0
+    },
+    {
+      "word": "爱发电",
+      "score": 5.0
+    },
+    {
+      "word": "SPAWN",
+      "score": 5.0
+    },
+    {
+      "word": "PORTAL",
+      "score": 5.0
+    },
+    {
+      "word": "涩涩",
+      "score": 5.0
+    },
+    {
+      "word": "贴贴",
+      "score": 5.0
+    },
+    {
+      "word": "换模",
+      "score": 5.0
+    },
+    {
+      "word": "穿模",
+      "score": 5.0
+    },
+    {
+      "word": "膝枕",
+      "score": 5.0
+    },
+    {
+      "word": "扩列",
+      "score": 5.0
+    },
+    {
+      "word": "VRCX",
+      "score": 5.0
+    },
+    {
+      "word": "Quest3",
+      "score": 5.0
+    },
+    {
+      "word": "夹子音",
+      "score": 5.0
+    },
+    {
+      "word": "逛图",
+      "score": 5.0
+    },
+    {
+      "word": "核弹模",
+      "score": 5.0
+    },
+    {
+      "word": "梗博物馆",
+      "score": 5.0
+    }
+  ]
+}
