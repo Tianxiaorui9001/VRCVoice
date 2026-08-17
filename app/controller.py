@@ -370,8 +370,13 @@ class RecognitionController:
             return text
         # 句末去标点(兜底): 提示词已要求, 这里再剥一遍句号类, 问号/感叹号保留
         result = result.rstrip("。.．")
-        # 输出守卫: 结果长度远超原文(>max(3x, x+40))视为被带跑/注入, 回退原文
-        limit = max(len(text) * 3, len(text) + 40)
+        # 输出守卫: 结果长度远超原文视为被带跑/注入, 回退原文。
+        # 预设风格严格(max(3x, x+40)); 自定义风格是用户指定要的风格化输出,
+        # 天生可能扩写(如雌小鬼句式), 放宽到 max(8x, x+200), 仅拦明显离谱的越狱输出。
+        if s.get("style") == "custom":
+            limit = max(len(text) * 8, len(text) + 200)
+        else:
+            limit = max(len(text) * 3, len(text) + 40)
         if result and len(result) > limit:
             log(f"[controller] 润色结果疑似跑题(长度 {len(result)} vs 原文 {len(text)}, 上限 {limit}), 已回退原文: {result[:40]!r}")
             return text
