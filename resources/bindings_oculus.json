@@ -9,8 +9,8 @@
               "output": "/actions/default/in/HoldToTalk"
             }
           },
-          "mode": "button",
-          "path": "/user/hand/left/input/thumbstick/click"
+          "mode": "joystick",
+          "path": "/user/hand/left/input/joystick"
         }
       ]
     }

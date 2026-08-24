@@ -1,3 +1,15 @@
+# VRCVoice v0.9.13 — Quest / Virtual Desktop 手柄修复
+
+## 🔧 修复
+
+- **Quest / Oculus Touch 左摇杆按下无响应**：修正 SteamVR 默认绑定的输入源，由错误的 Knuckles `thumbstick/click` 改为 Oculus Touch `joystick`，并使用 joystick 模式读取 click
+- **升级后仍使用旧手柄绑定**：启动时按内容哈希同步内置 SteamVR action manifest 和绑定文件，确保新版修复能覆盖 `%APPDATA%\VRCVoice\resources` 中的旧副本
+
+## 🩺 诊断
+
+- VR 日志新增 SteamVR runtime、action handles、控制器角色、`controller_type`、input profile、型号和渲染模型；若特定串流驱动仍不响应，可通过 `%APPDATA%\VRCVoice\vrcvoice.log` 继续定位
+
+---
 # VRCVoice v0.9.12 — 自定义润色风格修复
 
 ## 🔧 修复

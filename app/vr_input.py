@@ -7,6 +7,7 @@
 
 注意: SteamVR 对应用绑定状态有缓存, 新增默认绑定后可能需要重启 SteamVR 才生效。
 """
+import hashlib
 import json
 import os
 import shutil
@@ -23,9 +24,17 @@ APP_DIR = app_base_dir()
 OPENVR_LOCK = threading.Lock()
 
 
+def _file_sha256(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def _runtime_resources_dir() -> str:
     """manifest/bindings 所在目录。
-    frozen: exe 目录可能只读(如 Program Files), 首次启动复制到 APPDATA 下 VRCVoice/resources;
+    frozen: exe 目录可能只读(如 Program Files), 将内置资源同步到 APPDATA 下 VRCVoice/resources;
     源码: 直接用项目 resources。"""
     if getattr(sys, "frozen", False):
         src = os.path.join(APP_DIR, "resources")
@@ -33,9 +42,23 @@ def _runtime_resources_dir() -> str:
         os.makedirs(dst, exist_ok=True)
         if os.path.isdir(src):
             for fn in os.listdir(src):
-                if fn.endswith(".json") and not os.path.exists(os.path.join(dst, fn)):
+                if not fn.endswith(".json"):
+                    continue
+                src_path = os.path.join(src, fn)
+                dst_path = os.path.join(dst, fn)
+                tmp_path = dst_path + ".tmp"
+                try:
+                    src_sha = _file_sha256(src_path)
+                    dst_sha = _file_sha256(dst_path) if os.path.isfile(dst_path) else None
+                    if src_sha != dst_sha:
+                        shutil.copy2(src_path, tmp_path)
+                        os.replace(tmp_path, dst_path)
+                        log(f"[vr] 内置输入资源已更新: {fn} sha256={src_sha[:12]}")
+                except Exception as e:
+                    log(f"[vr] 内置输入资源更新失败: {fn}: {e}")
                     try:
-                        shutil.copy2(os.path.join(src, fn), os.path.join(dst, fn))
+                        if os.path.exists(tmp_path):
+                            os.remove(tmp_path)
                     except Exception:
                         pass
         return dst
@@ -60,7 +83,7 @@ class VRInput:
         # 最近一次轮询诊断(供日志): 通道 / bActive / bState / 左右手掩码
         self.last_poll = {"ch": "A", "bActive": None, "bState": None,
                           "mask": "-", "maskL": "-", "maskR": "-",
-                          "hand": "-", "err": None}
+                          "hand": "-", "controllers": "-", "err": None}
         self._last_hold = False  # 上次轮询结果(锁忙时保持, 防误判松开)
         self._last_poll_ts = 0.0  # 最近一次成功轮询时间(看门狗检测 IPC 挂起用)
 
@@ -76,7 +99,7 @@ class VRInput:
         """初始化 OpenVR + 加载 action manifest。失败时返回 False。"""
         try:
             import openvr
-            openvr.init(openvr.VRApplication_Overlay)
+            system = openvr.init(openvr.VRApplication_Overlay)
             self._input = openvr.IVRInput()
             self._input.setActionManifestPath(MANIFEST_PATH)
             self._action_set = self._input.getActionSetHandle("/actions/default")
@@ -85,6 +108,13 @@ class VRInput:
             # 必须传 ctypes 数组(openvr 对 Python list 会创建空 action set 丢弃内容!)
             self._active_sets = (openvr.VRActiveActionSet_t * 1)()
             self._active_sets[0].ulActionSet = self._action_set
+            log(f"[vr] Action Manifest 已加载: {MANIFEST_PATH} "
+                f"sha256={_file_sha256(MANIFEST_PATH)[:12]}")
+            oculus_binding = os.path.join(RESOURCES_DIR, "bindings_oculus.json")
+            log(f"[vr] Oculus binding: {oculus_binding} "
+                f"sha256={_file_sha256(oculus_binding)[:12]}")
+            log(f"[vr] Action handles: set={self._action_set} HoldToTalk={self._action}")
+            self._log_runtime_diagnostics(system, openvr)
             self._ready = True
             return True
         except Exception as e:
@@ -96,6 +126,46 @@ class VRInput:
             self._ready = False
             self._last_error = str(e)
             return False
+
+    def _log_runtime_diagnostics(self, system, openvr):
+        """记录实际控制器类型和输入配置，便于无设备环境下定位默认绑定未命中。"""
+        try:
+            log(f"[vr] SteamVR runtime={system.getRuntimeVersion()} application=Overlay")
+        except Exception as e:
+            log(f"[vr] SteamVR runtime 读取失败: {e}")
+
+        role_names = {
+            int(openvr.TrackedControllerRole_LeftHand): "LeftHand",
+            int(openvr.TrackedControllerRole_RightHand): "RightHand",
+            int(openvr.TrackedControllerRole_OptOut): "OptOut",
+            int(openvr.TrackedControllerRole_Treadmill): "Treadmill",
+            int(openvr.TrackedControllerRole_Stylus): "Stylus",
+        }
+        controller_types = []
+        for index in range(openvr.k_unMaxTrackedDeviceCount):
+            try:
+                if not system.isTrackedDeviceConnected(index):
+                    continue
+                if system.getTrackedDeviceClass(index) != openvr.TrackedDeviceClass_Controller:
+                    continue
+                role = int(system.getControllerRoleForTrackedDeviceIndex(index))
+
+                def prop(name):
+                    try:
+                        return system.getStringTrackedDeviceProperty(index, getattr(openvr, name))
+                    except Exception as e:
+                        return f"<读取失败: {e}>"
+
+                controller_type = prop("Prop_ControllerType_String")
+                controller_types.append(controller_type)
+                log(f"[vr] 控制器 index={index} role={role_names.get(role, str(role))} "
+                    f"controller_type={controller_type} "
+                    f"input_profile={prop('Prop_InputProfilePath_String')} "
+                    f"model={prop('Prop_ModelNumber_String')} "
+                    f"render_model={prop('Prop_RenderModelName_String')}")
+            except Exception as e:
+                log(f"[vr] 控制器诊断失败 index={index}: {e}")
+        self.last_poll["controllers"] = ",".join(dict.fromkeys(controller_types)) or "未检测到控制器"
 
     def is_hold_talk_pressed(self) -> bool:
         """单通道轮询: 只认 SteamVR Input 动作绑定(bActive=True 且 bState=True)。
