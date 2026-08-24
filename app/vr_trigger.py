@@ -48,6 +48,7 @@ class VRTriggerPoller(threading.Thread):
                         log(f"[vr-trigger] 状态查询异常: {e}")
                         active = False
                     log(f"[vr-trigger] 按下(toggle) active={active} | ch={d.get('ch')} "
+                        f"controllers={d.get('controllers')} "
                         f"bActive={d.get('bActive')} bState={d.get('bState')} "
                         f"maskL={d.get('maskL')} maskR={d.get('maskR')} "
                         f"hand={d.get('hand')} err={d.get('err')}")
@@ -60,6 +61,7 @@ class VRTriggerPoller(threading.Thread):
                         log(f"[vr-trigger] 切换动作异常: {e}")
                 else:
                     log(f"[vr-trigger] 按下 | ch={d.get('ch')} bActive={d.get('bActive')} "
+                        f"controllers={d.get('controllers')} "
                         f"bState={d.get('bState')} maskL={d.get('maskL')} maskR={d.get('maskR')} "
                         f"hand={d.get('hand')} err={d.get('err')}")
                     try:
@@ -71,11 +73,13 @@ class VRTriggerPoller(threading.Thread):
                 if self._toggle_fn():
                     # 切换模式: 松开不结束(靠再次按下或静音自动停止)
                     log(f"[vr-trigger] 松开(toggle, 不结束) | ch={d.get('ch')} "
+                        f"controllers={d.get('controllers')} "
                         f"bActive={d.get('bActive')} bState={d.get('bState')} "
                         f"maskL={d.get('maskL')} maskR={d.get('maskR')} "
                         f"hand={d.get('hand')} err={d.get('err')}")
                 else:
                     log(f"[vr-trigger] 松开 | ch={d.get('ch')} bActive={d.get('bActive')} "
+                        f"controllers={d.get('controllers')} "
                         f"bState={d.get('bState')} maskL={d.get('maskL')} maskR={d.get('maskR')} "
                         f"hand={d.get('hand')} err={d.get('err')}")
                     if self._delay > 0:
@@ -93,6 +97,7 @@ class VRTriggerPoller(threading.Thread):
                 if self._heartbeat_enabled():
                     hint = " [设备未激活/休眠, 晃动手柄唤醒]" if not d.get("bActive") else ""
                     log(f"[vr-trigger] 心跳 ch={d.get('ch')} bActive={d.get('bActive')} "
+                        f"controllers={d.get('controllers')} "
                         f"bState={d.get('bState')} maskL={d.get('maskL')} maskR={d.get('maskR')} "
                         f"hand={d.get('hand')} err={d.get('err')} held={self._held} flipped={flipped} "
                         f"mode={'toggle' if self._toggle_fn() else 'hold'}{hint}")
